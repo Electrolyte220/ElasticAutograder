@@ -1,0 +1,6 @@
+  Job creation logic
+  Queue enqueue logic
+  Job lifecycle state transitions
+  Timeout enforcement
+  Resource limit validation
+  Result parsing / scoring logic
