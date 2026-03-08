@@ -120,4 +120,20 @@ public class JobController {
         jobRepository.saveAndFlush(job);
         return ResponseEntity.ok("Successfully updated job.");
     }
+
+    @DeleteMapping({"/files/remove"})
+    public ResponseEntity<String> removeFile(@RequestBody String fileName) {
+        Path filePath = Path.of("grading/graders/assignments/test1/" + fileName);
+        if(Files.exists(filePath)) {
+            try {
+                Files.delete(filePath);
+            }catch(IOException e) {
+                return ResponseEntity.status(500).body("Unable to delete file.");
+            }
+        } else {
+            return ResponseEntity.status(404).body("File not found.");
+        }
+        return ResponseEntity.ok("Successfully deleted file.");
+    }
+
 }

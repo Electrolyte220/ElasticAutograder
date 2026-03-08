@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { uploadFile } from "../api/upload_file";
 import { runJob } from "../api/run_job";
 import { updateDB } from "../api/update_db";
+import { removeFile } from "../api/remove_uploaded_file";
 
 export default function SubmitJobPage() {
   const [file, setFile] = useState(null);
@@ -26,6 +27,7 @@ export default function SubmitJobPage() {
       const jobResponse = await runJob(message.id, file.name);
       const jobResults = await jobResponse.json();
       await updateDB(message.id, jobResults);
+      await removeFile(file.name);
     } catch (err) {
       setStatus(err.message);
     }
