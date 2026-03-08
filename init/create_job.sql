@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS jobs (
   id BIGSERIAL PRIMARY KEY,
 
-  grader_type TEXT NOT NULL,
+  grader_type TEXT,
   original_filename TEXT NOT NULL,
   submission_path TEXT,
   grader_image TEXT,

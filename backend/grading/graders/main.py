@@ -1,9 +1,17 @@
-import sys
-import os
-import json
-import traceback
-import importlib.util
-from typing import Any, Dict, List
+import \
+    importlib.util
+import \
+    json
+import \
+    os
+import \
+    sys
+import \
+    traceback
+from typing import \
+    Any, \
+    Dict, \
+    List
 
 
 def load_module_from_path(module_name: str, file_path: str):
@@ -116,7 +124,6 @@ def main():
         )
 
     submission_path = sys.argv[1]
-    answer_path = sys.argv[2]
 
     passed, total, results = grade(submission_path, answer_path)
 
@@ -135,16 +142,6 @@ def main():
             exit_code=1
         )
 
-    json_results = [make_result("validation", "validation_check", True, "submission loaded successfully")]
-    for r in results:
-        json_results.append(
-            make_result(
-                "test",
-                f"case_{r['test_num']}",
-                r["passed"],
-                f"Expected {r['expected']}, got {r['got']}"
-            )
-        )
 
     status = "SUCCEEDED" if passed == total else "FAILED"
 

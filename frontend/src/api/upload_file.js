@@ -9,8 +9,8 @@ export async function uploadFile(file) {
     body: formData
   });
 
-  const message = await response.text();
+  const message = await response.json();
 
-  if (!response.ok) throw new Error(message);
+  if (!response.ok) throw new Error(message.message);
   return message;
 }

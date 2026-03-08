@@ -15,8 +15,8 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "assignment_id")
-    private String assignmentId;
+    @Column(name = "grader_type")
+    private String graderType;
 
     @Column(name = "original_filename", nullable = false)
     private String originalFilename;
@@ -68,6 +68,7 @@ public class Job {
     public Job(String originalFilename, OffsetDateTime createdAt, JobStatus status) {
         this.originalFilename = originalFilename;
         this.createdAt = createdAt;
+        this.updatedAt = createdAt;
         this.status = status;
     }
 
@@ -75,12 +76,12 @@ public class Job {
         return id;
     }
 
-    public String getAssignmentId() {
-        return assignmentId;
+    public String getGraderType() {
+        return graderType;
     }
 
-    public void setAssignmentId(String assignmentId) {
-        this.assignmentId = assignmentId;
+    public void setGraderType(String graderType) {
+        this.graderType = graderType;
     }
 
     public String getOriginalFilename() {
