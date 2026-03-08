@@ -1,9 +1,17 @@
-import sys
-import os
-import json
-import traceback
-import importlib.util
-from typing import Any, Dict, List
+import \
+    importlib.util
+import \
+    json
+import \
+    os
+import \
+    sys
+import \
+    traceback
+from typing import \
+    Any, \
+    Dict, \
+    List
 
 
 def load_module_from_path(module_name: str, file_path: str):
@@ -65,7 +73,7 @@ def main():
 
     submission_path = sys.argv[1]
     key_path = sys.argv[2]
-    expected_function_name = "add"
+    expected_function_name = "fib"
 
     results: List[Dict[str, Any]] = []
 
@@ -170,9 +178,8 @@ def main():
     )
 
     test_cases = [
-        {"name": "case_1", "args": [2, 3]},
-        {"name": "case_2", "args": [10, -4]},
-        {"name": "case_3", "args": [0, 0]},
+        {"name": "case_1", "args": [5]},
+        {"name": "case_2", "args": [35]},
     ]
 
     tests_passed = 0

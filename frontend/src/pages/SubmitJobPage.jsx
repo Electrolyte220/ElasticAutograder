@@ -1,17 +1,19 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from 'react';
 import { uploadFile } from "../api/upload_file";
+import { runJob } from "../api/run_job";
+import { updateDB } from "../api/update_db";
 
 export default function SubmitJobPage() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("");
+  const navigate = useNavigate();
 
   const handleFileChange = e => {
     setFile(e.target.files[0]);
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!file) {
       setStatus("Please select a file to upload.");
       return;
@@ -19,7 +21,11 @@ export default function SubmitJobPage() {
     try {
       setStatus("Uploading...");
       const message = await uploadFile(file);
-      setStatus(message);
+      setStatus(message.message);
+      navigate(`/progress/${message.id}`);
+      const jobResponse = await runJob(message.id, file.name);
+      const jobResults = await jobResponse.json();
+      await updateDB(message.id, jobResults);
     } catch (err) {
       setStatus(err.message);
     }
