@@ -43,16 +43,6 @@ export default function SubmitJobPage() {
 
         <div className="card">
           <div className="form-group">
-            <label className="label">Assignment ID</label>
-            <input className="input" type="text" placeholder="e.g. hw1" />
-          </div>
-
-          <div className="form-group">
-            <label className="label">Grader Image</label>
-            <input className="input" type="text" placeholder="e.g. python-grader:latest" />
-          </div>
-
-          <div className="form-group">
             <label className="label">Upload Submission</label>
             <input className="input" type="file" onChange={handleFileChange}/>
           </div>
