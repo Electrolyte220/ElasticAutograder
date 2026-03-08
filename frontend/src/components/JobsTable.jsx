@@ -15,6 +15,15 @@ export default function JobsTable({ jobs }) {
       <tbody>
         {jobs.map((job) => {
           const statusClass = `status status-${(job.status || "").toLowerCase()}`;
+          const formatedDate = new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: 'numeric',
+            second: 'numeric'
+          }).format(new Date(job.createdAt));
+
 
           return (
             <tr key={job.id}>
@@ -22,7 +31,7 @@ export default function JobsTable({ jobs }) {
               <td>{job.assignmentId ?? ""}</td>
               <td>{job.originalFilename ?? ""}</td>
               <td className={statusClass}>{job.status ?? ""}</td>
-              <td>{job.createdAt ?? ""}</td>
+              <td className={formatedDate}>{formatedDate ?? ""}</td>
               <td>{job.score ?? ""}</td>
               <td>
                 {job.testsPassed ?? ""} / {job.testsTotal ?? ""}
