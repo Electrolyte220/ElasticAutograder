@@ -1,0 +1,158 @@
+:root {
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface-2: #111827;
+  --text: #f9fafb;
+  --muted: #9ca3af;
+  --border: #374151;
+  --accent: #60a5fa;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+
+  --table-header: #e5e7eb;
+  --table-header-text: #111827;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.page {
+  padding: 24px;
+}
+
+.page-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.table th {
+  background: var(--table-header);
+  color: var(--table-header-text);
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--border);
+}
+
+.table td {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.status {
+  font-weight: 700;
+}
+
+.status-pending,
+.status-queued,
+.status-running {
+  color: var(--warning);
+}
+
+.status-succeeded {
+  color: var(--success);
+}
+
+.status-failed,
+.status-cancelled {
+  color: var(--error);
+}
+
+.button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.jobs-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 24px;
+}
+
+.jobs-board-shell {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.jobs-board-card {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.page-title {
+  text-align: center;
+}
+
+.jobs-page {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 24px 24px;
+}

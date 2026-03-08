@@ -7,10 +7,21 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.autograder.model.Job;
+import com.autograder.repository.JobRepository;
+import java.util.List;
+
+// this must be changed in prod
+@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api")
 public class JobController {
 
+    private final JobRepository jobRepository;
+
+    public JobController(JobRepository jobRepository) {
+        this.jobRepository = jobRepository;
+    }
     @PostMapping({"/jobs"})
     public ResponseEntity<String> createJob() {
         //create jobs & upload
@@ -23,6 +34,12 @@ public class JobController {
         JsonObject test = new JsonObject();
         test.addProperty("test", "If you see this in your browser, it works!");
         return ResponseEntity.ok(test);
+    }
+
+    // added by app0cal
+    @GetMapping("/jobs/recent")
+    public ResponseEntity<List<Job>> getRecentJobs() {
+        return ResponseEntity.ok(jobRepository.findTop5ByOrderByCreatedAtDesc());
     }
 
     @GetMapping("/job/{id}")
