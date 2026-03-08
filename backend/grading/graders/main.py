@@ -24,17 +24,12 @@ def make_result(kind: str, name: str, passed: bool, message: str) -> Dict[str, A
     }
 
 
-def emit(payload: Dict[str, Any], exit_code: int = 0) -> None:
-    print(json.dumps(payload))
-    sys.exit(exit_code)
-
-
 def build_payload(
     status: str,
     validation_passed: bool,
     tests_passed: int,
     tests_total: int,
-    error_message: str | None,
+    error_message,
     results: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
     score = round((tests_passed / tests_total) * 100, 2) if tests_total > 0 else 0.0
@@ -49,6 +44,63 @@ def build_payload(
     }
 
 
+def emit(payload: Dict[str, Any], exit_code: int = 0) -> None:
+    print(json.dumps(payload, indent=2))
+    sys.exit(exit_code)
+
+
+def grade(submission_path: str, answer_path: str):
+    if not os.path.exists(submission_path):
+        return 0, 0, [{"error": f"Submission file not found: {submission_path}"}]
+    if not os.path.exists(answer_path):
+        return 0, 0, [{"error": f"Answer key file not found: {answer_path}"}]
+
+    try:
+        answer_module = load_module_from_path("answerKey_module", answer_path)
+    except Exception as e:
+        return 0, 0, [{"error": f"Could not load answer key: {e}"}]
+
+    function_name = answer_module.FUNCTION_NAME
+    test_cases = answer_module.TEST_CASES
+    total = len(test_cases)
+
+    try:
+        student_module = load_module_from_path("studentSubmission_module", submission_path)
+    except Exception as e:
+        return 0, total, [{"error": f"Could not load submission: {e}"}]
+
+    if not hasattr(student_module, function_name):
+        return 0, total, [{"error": f"Function '{function_name}' not found in submission."}]
+
+    student_func = getattr(student_module, function_name)
+
+    passed = 0
+    results = []
+    for i, case in enumerate(test_cases):
+        test_input = case["input"]
+        expected = case["expected"]
+
+        try:
+            result = student_func(*test_input)
+            success = result == expected
+        except Exception as e:
+            result = f"ERROR: {e}"
+            success = False
+
+        if success:
+            passed += 1
+
+        results.append({
+            "test_num": i + 1,
+            "input": test_input,
+            "expected": expected,
+            "got": result,
+            "passed": success
+        })
+
+    return passed, total, results
+
+
 def main():
     if len(sys.argv) != 3:
         emit(
@@ -57,167 +109,53 @@ def main():
                 validation_passed=False,
                 tests_passed=0,
                 tests_total=0,
-                error_message="Usage: python main.py <submission_path> <key_path>",
+                error_message="Usage: python main.py <submission_path> <answer_path>",
                 results=[]
             ),
             exit_code=1
         )
 
     submission_path = sys.argv[1]
-    key_path = sys.argv[2]
-    expected_function_name = "add"
+    answer_path = sys.argv[2]
 
-    results: List[Dict[str, Any]] = []
+    passed, total, results = grade(submission_path, answer_path)
 
-    if not os.path.exists(submission_path):
+    if results and "error" in results[0]:
         emit(
             build_payload(
                 status="FAILED",
                 validation_passed=False,
                 tests_passed=0,
-                tests_total=0,
-                error_message=f"Submission file not found: {submission_path}",
+                tests_total=total,
+                error_message=results[0]["error"],
                 results=[
-                    make_result("validation", "validation_check", False, "submission file not found")
+                    make_result("validation", "validation_check", False, results[0]["error"])
                 ]
             ),
             exit_code=1
         )
 
-    if not os.path.exists(key_path):
-        emit(
-            build_payload(
-                status="FAILED",
-                validation_passed=False,
-                tests_passed=0,
-                tests_total=0,
-                error_message=f"Key file not found: {key_path}",
-                results=[
-                    make_result("validation", "validation_check", False, "key file not found")
-                ]
-            ),
-            exit_code=1
-        )
-
-    try:
-        submission_module = load_module_from_path("submission_module", submission_path)
-    except Exception as exc:
-        emit(
-            build_payload(
-                status="FAILED",
-                validation_passed=False,
-                tests_passed=0,
-                tests_total=0,
-                error_message=f"Failed to import submission: {exc}",
-                results=[
-                    make_result("validation", "validation_check", False, f"submission import failed: {exc}")
-                ]
-            ),
-            exit_code=0
-        )
-
-    try:
-        key_module = load_module_from_path("key_module", key_path)
-    except Exception as exc:
-        emit(
-            build_payload(
-                status="FAILED",
-                validation_passed=False,
-                tests_passed=0,
-                tests_total=0,
-                error_message=f"Failed to import key: {exc}",
-                results=[
-                    make_result("validation", "validation_check", False, f"key import failed: {exc}")
-                ]
-            ),
-            exit_code=1
-        )
-
-    submission_func = getattr(submission_module, expected_function_name, None)
-    key_func = getattr(key_module, expected_function_name, None)
-
-    validation_errors = []
-
-    if not callable(submission_func):
-        validation_errors.append(f"submission is missing callable function '{expected_function_name}'")
-
-    if not callable(key_func):
-        validation_errors.append(f"key is missing callable function '{expected_function_name}'")
-
-    if validation_errors:
-        message = "; ".join(validation_errors)
-        emit(
-            build_payload(
-                status="FAILED",
-                validation_passed=False,
-                tests_passed=0,
-                tests_total=0,
-                error_message=message,
-                results=[
-                    make_result("validation", "validation_check", False, message)
-                ]
-            ),
-            exit_code=0
-        )
-
-    results.append(
-        make_result(
-            "validation",
-            "validation_check",
-            True,
-            f"submission and key imported successfully; found callable '{expected_function_name}'"
-        )
-    )
-
-    test_cases = [
-        {"name": "case_1", "args": [2, 3]},
-        {"name": "case_2", "args": [10, -4]},
-        {"name": "case_3", "args": [0, 0]},
-    ]
-
-    tests_passed = 0
-    tests_total = len(test_cases)
-
-    for case in test_cases:
-        case_name = case["name"]
-        args = case["args"]
-
-        try:
-            expected = key_func(*args)
-        except Exception as exc:
-            results.append(
-                make_result("test", case_name, False, f"key failed on args {args}: {exc}")
+    json_results = [make_result("validation", "validation_check", True, "submission loaded successfully")]
+    for r in results:
+        json_results.append(
+            make_result(
+                "test",
+                f"case_{r['test_num']}",
+                r["passed"],
+                f"Expected {r['expected']}, got {r['got']}"
             )
-            continue
+        )
 
-        try:
-            actual = submission_func(*args)
-        except Exception as exc:
-            results.append(
-                make_result("test", case_name, False, f"submission raised exception on args {args}: {exc}")
-            )
-            continue
-
-        if actual == expected:
-            tests_passed += 1
-            results.append(
-                make_result("test", case_name, True, f"Expected {expected}, got {actual}")
-            )
-        else:
-            results.append(
-                make_result("test", case_name, False, f"Expected {expected}, got {actual}")
-            )
-
-    status = "SUCCEEDED" if tests_passed == tests_total else "FAILED"
+    status = "SUCCEEDED" if passed == total else "FAILED"
 
     emit(
         build_payload(
             status=status,
             validation_passed=True,
-            tests_passed=tests_passed,
-            tests_total=tests_total,
+            tests_passed=passed,
+            tests_total=total,
             error_message=None,
-            results=results
+            results=json_results
         ),
         exit_code=0
     )
