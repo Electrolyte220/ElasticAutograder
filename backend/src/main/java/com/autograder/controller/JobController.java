@@ -4,11 +4,17 @@ import com.google.gson.JsonObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.autograder.model.Job;
 import com.autograder.repository.JobRepository;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.print.DocFlavor.INPUT_STREAM;
 import java.util.List;
 
 // this must be changed in prod
@@ -22,10 +28,21 @@ public class JobController {
     public JobController(JobRepository jobRepository) {
         this.jobRepository = jobRepository;
     }
-    @PostMapping({"/jobs"})
-    public ResponseEntity<String> createJob() {
+    @PostMapping({"/jobs/upload"})
+    public ResponseEntity<String> createJob(@RequestParam MultipartFile file) {
         //create jobs & upload
-        return ResponseEntity.ok("test");
+        String fileName = file.getOriginalFilename();
+        try {
+            byte[] bytes = file.getBytes();
+            Path path = Path.of("uploads/" + fileName);
+            if(!Files.exists(path)) {
+                Files.createDirectories(Path.of("uploads"));
+            }
+            Files.write(path, bytes);
+            return ResponseEntity.ok("Successfully uploaded file.");
+        } catch(IOException e) {
+            return ResponseEntity.status(500).body("Failed to read file: " + fileName);
+        }
     }
 
     @GetMapping("/jobs")
