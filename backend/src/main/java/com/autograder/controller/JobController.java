@@ -62,6 +62,7 @@ public class JobController {
         if(jobEntity.isEmpty()) return ResponseEntity.status(500).body(errorObj);
 
         Job job = jobEntity.get();
+        job.setStatus(JobStatus.RUNNING);
         job.setUpdatedAt(OffsetDateTime.now());
         job.setStartedAt(OffsetDateTime.now());
         jobRepository.saveAndFlush(job);

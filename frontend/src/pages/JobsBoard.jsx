@@ -1,26 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { fetchRecentJobs } from "../api/jobs";
 import JobsTable from "../components/JobsTable";
+
+const REFRESH_INTERVAL = 1000;
 
 export default function JobsBoard() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const refreshInterval = useRef(null)
+
+  async function load(isInitial = false) {
+    try {
+      if (isInitial) setLoading(true);
+      const data = await fetchRecentJobs();
+      setJobs(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      if (isInitial) isInitial = false;
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchRecentJobs();
-        setJobs(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+    load(true);
 
-    load();
+    refreshInterval.current = setInterval(() => load(false), REFRESH_INTERVAL)
+    return () => clearInterval(refreshInterval.current)
   }, []);
 
   return (

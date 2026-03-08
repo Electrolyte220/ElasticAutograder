@@ -22,7 +22,7 @@ export default function SubmitJobPage() {
       setStatus("Uploading...");
       const message = await uploadFile(file);
       setStatus(message.message);
-      navigate(`/progress/${message.id}`);
+      navigate("/");
       const jobResponse = await runJob(message.id, file.name);
       const jobResults = await jobResponse.json();
       await updateDB(message.id, jobResults);
