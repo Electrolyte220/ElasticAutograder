@@ -1,6 +1,9 @@
 package com.autograder.model;
 
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Type;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
@@ -52,6 +55,7 @@ public class Job {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    @Type(JsonBinaryType.class)
     @Column(name = "result_json", columnDefinition = "jsonb")
     private String resultJson;
 
@@ -59,6 +63,12 @@ public class Job {
     private String k8sJobName;
 
     public Job() {
+    }
+
+    public Job(String originalFilename, OffsetDateTime createdAt, JobStatus status) {
+        this.originalFilename = originalFilename;
+        this.createdAt = createdAt;
+        this.status = status;
     }
 
     public Long getId() {

@@ -1,6 +1,7 @@
 package com.autograder.controller;
 
 import com.autograder.model.Job;
+import com.autograder.model.JobStatus;
 import com.autograder.repository.JobRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -9,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +37,9 @@ public class JobController {
                 Files.createDirectories(uploads);
             }
             Files.write(filePath, bytes);
+            //create job object & add it to db
+            Job job = new Job(fileName, OffsetDateTime.now(), JobStatus.QUEUED);
+            jobRepository.save(job);
             return ResponseEntity.ok("Successfully uploaded file.");
         } catch(IOException e) {
             return ResponseEntity.status(500).body("Failed to read file: " + fileName);
