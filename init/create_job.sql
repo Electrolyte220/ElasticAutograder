@@ -1,14 +1,14 @@
--- main table creation sql command 
+-- main table creation sql command
 CREATE TABLE IF NOT EXISTS jobs (
   id BIGSERIAL PRIMARY KEY,
 
-  assignment_id TEXT,
+  grader_type TEXT NOT NULL,
   original_filename TEXT NOT NULL,
   submission_path TEXT,
   grader_image TEXT,
 
   status TEXT NOT NULL CHECK (
-    status IN ('PENDING', 'QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')
+    status IN ('QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')
   ),
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,12 +26,12 @@ CREATE TABLE IF NOT EXISTS jobs (
   k8s_job_name TEXT
 );
 
--- indexes implemented to speed up querying (these are the most likely to be queried for so introducing indexes helps performance :) )
+-- indexes implemented to speed up querying
 CREATE INDEX IF NOT EXISTS idx_jobs_status
   ON jobs(status);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_assignment_id
-  ON jobs(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_grader_type
+  ON jobs(grader_type);
 
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at
   ON jobs(created_at DESC);
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_created_at
 CREATE INDEX IF NOT EXISTS idx_jobs_k8s_job_name
   ON jobs(k8s_job_name);
 
--- additional helper for whenever a query is updated
+-- helper function to refresh updated_at whenever a row is updated
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger AS $$
 BEGIN
