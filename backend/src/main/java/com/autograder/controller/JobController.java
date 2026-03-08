@@ -27,7 +27,7 @@ public class JobController {
     }
     @PostMapping({"/jobs/upload"})
     public ResponseEntity<String> uploadFile(@RequestParam MultipartFile file) {
-        //create jobs & upload
+        //save file, and add to db
         String fileName = file.getOriginalFilename();
         try {
             byte[] bytes = file.getBytes();
@@ -36,8 +36,10 @@ public class JobController {
             if(!Files.exists(uploads)) {
                 Files.createDirectories(uploads);
             }
+            if(Files.exists(filePath)) {
+                return ResponseEntity.status(409).body("File with this name already exists.");
+            }
             Files.write(filePath, bytes);
-            //create job object & add it to db
             Job job = new Job(fileName, OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
             return ResponseEntity.ok("Successfully uploaded file.");
