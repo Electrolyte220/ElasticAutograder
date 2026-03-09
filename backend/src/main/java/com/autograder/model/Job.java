@@ -65,8 +65,9 @@ public class Job {
     public Job() {
     }
 
-    public Job(String originalFilename, OffsetDateTime createdAt, JobStatus status) {
+    public Job(String originalFilename, String graderType, OffsetDateTime createdAt, JobStatus status) {
         this.originalFilename = originalFilename;
+        this.graderType = graderType;
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
         this.status = status;

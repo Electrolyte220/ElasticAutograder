@@ -53,7 +53,8 @@ public class JobController {
                 return ResponseEntity.status(409).body(Map.of("message", "File with this name already exists.", "id", -1L));
             }
             Files.write(filePath, bytes);
-            Job job = new Job(fileName, OffsetDateTime.now(), JobStatus.QUEUED);
+            //TODO: change graderType to be dynamic in beta.
+            Job job = new Job(fileName, "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
             return ResponseEntity.ok(Map.of("message", "Successfully uploaded file.", "id", job.getId()));
         } catch(IOException e) {

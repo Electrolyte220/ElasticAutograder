@@ -4,7 +4,7 @@ export default function JobsTable({ jobs }) {
       <thead>
         <tr>
           <th>ID</th>
-          <th>Assignment</th>
+          <th>Grader Type</th>
           <th>Filename</th>
           <th>Status</th>
           <th>Created</th>
@@ -28,7 +28,7 @@ export default function JobsTable({ jobs }) {
           return (
             <tr key={job.id}>
               <td>{job.id}</td>
-              <td>{job.assignmentId ?? ""}</td>
+              <td>{job.graderType ?? ""}</td>
               <td>{job.originalFilename ?? ""}</td>
               <td className={statusClass}>{job.status ?? ""}</td>
               <td className={formatedDate}>{formatedDate ?? ""}</td>
