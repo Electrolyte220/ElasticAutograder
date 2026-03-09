@@ -32,6 +32,12 @@ public class JobController {
     public JobController(JobRepository jobRepository) {
         this.jobRepository = jobRepository;
     }
+
+    /**
+     * Uploads file to the server, saves it to the grading folder (staging), creates a {@link Job} object and saves to the database.
+     * @param file Submission file to upload
+     * @return Map of file name -> job id, or error
+     */
     @PostMapping({"/jobs/upload"})
     public ResponseEntity<Map<String, Object>> uploadFile(@RequestParam MultipartFile file) {
         //save file, and add to db
@@ -55,6 +61,15 @@ public class JobController {
         }
     }
 
+    /**
+     * Handles running a single uploaded job.
+     * First updates {@link Job} information with {@link JobStatus} and what time the job was started.
+     * Then runs the answer key against the uploaded submission.
+     * Once completed, updates the job with the finished time of the job & saves to the database.
+     * @param id ID of job to run
+     * @param fileName File name of job to run
+     * @return {@link JsonNode} for result of the job.
+     */
     @PostMapping({"/jobs/run/{id}"})
     public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody String fileName) {
         Optional<Job> jobEntity = jobRepository.findById(id);
@@ -69,7 +84,7 @@ public class JobController {
 
         try {
             //only handles uploaded file currently, will change in beta to be a zip of files
-            ProcessBuilder builder = new ProcessBuilder("python3", "main.py", String.format("./assignments/test1/%s", fileName), "./assignments/test1/answer_key/key.py");
+            ProcessBuilder builder = new ProcessBuilder("python3", "main.py",  String.format("./assignments/test1/%s", fileName), "./assignments/test1/answer_key/key.py");
             builder.directory(new File("grading/graders"));
             builder.redirectErrorStream(true);
 
@@ -102,11 +117,18 @@ public class JobController {
         return ResponseEntity.ok(jobRepository.findTop5ByOrderByCreatedAtDesc());
     }
 
+    /**
+     * Updates a job in the database after a job completes.
+     * First makes sure a job exists, then updates relevant fields, and saves changes to database.
+     * @param id ID of job to update
+     * @param jobResults {@link JsonNode} of job results
+     * @return Whether the job was updated or an error occurred
+     */
     @PostMapping("/jobs/{id}/callback")
     public ResponseEntity<String> updateJob(@PathVariable Long id, @RequestBody JsonNode jobResults) {
         Optional<Job> jobEntity = jobRepository.findById(id);
         if(jobEntity.isEmpty()) return ResponseEntity.status(500).body("Unable to find existing job with id " + id);
-        //worker status & result update
+
         Job job = jobEntity.get();
         job.setStatus(JobStatus.valueOf(jobResults.get("status").asString()));
         job.setTestsPassed(jobResults.get("tests_passed").asInt());
@@ -121,6 +143,11 @@ public class JobController {
         return ResponseEntity.ok("Successfully updated job.");
     }
 
+    /**
+     * Removes uploaded files once jobs have been run against them
+     * @param fileName File to delete
+     * @return OK/Error if file could/could not be deleted
+     */
     @DeleteMapping({"/files/remove"})
     public ResponseEntity<String> removeFile(@RequestBody String fileName) {
         Path filePath = Path.of("grading/graders/assignments/test1/" + fileName);

@@ -72,6 +72,8 @@ def main():
         )
 
     submission_path = sys.argv[1]
+    key_path = sys.argv[2]
+    expected_function_name = "fib"
 
     results: List[Dict[str, Any]] = []
 
@@ -90,6 +92,20 @@ def main():
             exit_code=1
         )
 
+    if not os.path.exists(key_path):
+        emit(
+            build_payload(
+                status="FAILED",
+                validation_passed=False,
+                tests_passed=0,
+                tests_total=0,
+                error_message=f"Key file not found: {key_path}",
+                results=[
+                    make_result("validation", "validation_check", False, "key file not found")
+                ]
+            ),
+            exit_code=1
+        )
 
     try:
         submission_module = load_module_from_path("submission_module", submission_path)
@@ -162,9 +178,8 @@ def main():
     )
 
     test_cases = [
-        {"name": "case_1", "args": [2, 3]},
-        {"name": "case_2", "args": [10, -4]},
-        {"name": "case_3", "args": [0, 0]},
+        {"name": "case_1", "args": [5]},
+        {"name": "case_2", "args": [35]},
     ]
 
     tests_passed = 0
