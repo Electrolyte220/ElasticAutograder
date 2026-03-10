@@ -4,8 +4,6 @@ on:
   push:
     branches-ignore:
       - main
-  pull_request:
-    branches: ["*"]
 
 jobs:
   test:
@@ -34,7 +32,9 @@ jobs:
           java-version: 21
           distribution: temurin
 
+      - name: Grant execute permissions to gradlew
+        run: chmod +x gradlew
       - name: Run tests
-        run: ./gradlew test
+        run: gradle test
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ea
