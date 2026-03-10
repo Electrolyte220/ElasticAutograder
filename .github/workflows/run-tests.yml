@@ -35,6 +35,7 @@ jobs:
       - name: Grant execute permissions to gradlew
         run: chmod +x gradlew
       - name: Run tests
-        run: gradle test
+        run: ./gradlew test
+        working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ea
