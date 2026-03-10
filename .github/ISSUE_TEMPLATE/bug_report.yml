@@ -15,7 +15,7 @@ body:
   - type: textarea
     id: log
     attributes:
-      label: Log/Crash Report
+      label: Console Output
       description: Please include console output (if relevant)
     validations:
       required: false
