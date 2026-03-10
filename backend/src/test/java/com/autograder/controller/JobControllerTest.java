@@ -1,7 +1,7 @@
 package com.autograder.controller;
 
 import com.autograder.model.Job;
-import com.autograder.model.JobStatus;
+
 import com.autograder.repository.JobRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,7 +9,8 @@ import org.mockito.Mockito;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.time.OffsetDateTime;
+import java.lang.reflect.Field;
+import java.nio.file.*;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,18 +23,34 @@ public class JobControllerTest {
     private JobController jobController;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         jobRepository = Mockito.mock(JobRepository.class);
         jobController = new JobController(jobRepository);
+
+        // ensure upload directory starts clean
+        Path uploadDir = Path.of("grading/graders/assignments/test1");
+        if (Files.exists(uploadDir)) {
+            Files.walk(uploadDir)
+                    .sorted((a,b) -> b.compareTo(a))
+                    .forEach(p -> {
+                        try { Files.delete(p); } catch (Exception ignored) {}
+                    });
+        }
+
+        // mock repository save to assign an ID
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> {
+            Job job = invocation.getArgument(0);
+
+            Field idField = Job.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(job, 1L);
+
+            return job;
+        });
     }
 
-    /**
-     * Test 1: Valid file upload returns 200 with success message.
-     */
     @Test
     void uploadFile_validFile_returns200WithMessage() {
-        Job savedJob = new Job("test_submission.py", "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED);
-        when(jobRepository.save(any(Job.class))).thenReturn(savedJob);
 
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -42,36 +59,28 @@ public class JobControllerTest {
                 "print('hello')".getBytes()
         );
 
-        ResponseEntity<Map<String, Object>> response = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> response = jobController.uploadFile(file);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("Successfully uploaded file.", response.getBody().get("message"));
     }
 
-    /**
-     * Test 2: File that already exists on disk returns 409 conflict.
-     */
     @Test
     void uploadFile_duplicateFile_returns409() {
-        // Use a filename that we know won't exist so we can test the happy path first,
-        // then test the conflict by uploading the same file twice.
+
+        String name = "duplicate_test.py";
+
         MockMultipartFile file = new MockMultipartFile(
                 "file",
-                "duplicate_test_" + System.currentTimeMillis() + ".py",
+                name,
                 "text/plain",
                 "print('hello')".getBytes()
         );
 
-        when(jobRepository.save(any(Job.class))).thenReturn(
-                new Job(file.getOriginalFilename(), "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED)
-        );
-
-        // First upload should succeed
-        ResponseEntity<Map<String, Object>> first = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> first = jobController.uploadFile(file);
         assertEquals(200, first.getStatusCode().value());
 
-        // Second upload of same filename should return 409
-        ResponseEntity<Map<String, Object>> second = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> second = jobController.uploadFile(file);
         assertEquals(409, second.getStatusCode().value());
         assertEquals("File with this name already exists.", second.getBody().get("message"));
     }
