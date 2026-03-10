@@ -1,8 +1,12 @@
--- main table creation sql command
-CREATE TABLE IF NOT EXISTS jobs (
+-- developer note I think I've dropped and re added this table like 50 times over lol
+-- so adding this for re creating table
+DROP TABLE IF EXISTS jobs CASCADE;
+
+-- Main jobs table
+CREATE TABLE jobs (
   id BIGSERIAL PRIMARY KEY,
 
-  grader_type TEXT,
+  grader_type TEXT NOT NULL,
   original_filename TEXT NOT NULL,
   submission_path TEXT,
   grader_image TEXT,
@@ -26,20 +30,20 @@ CREATE TABLE IF NOT EXISTS jobs (
   k8s_job_name TEXT
 );
 
--- indexes implemented to speed up querying
-CREATE INDEX IF NOT EXISTS idx_jobs_status
+-- Indexes
+CREATE INDEX idx_jobs_status
   ON jobs(status);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_grader_type
+CREATE INDEX idx_jobs_grader_type
   ON jobs(grader_type);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_created_at
+CREATE INDEX idx_jobs_created_at
   ON jobs(created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_jobs_k8s_job_name
+CREATE INDEX idx_jobs_k8s_job_name
   ON jobs(k8s_job_name);
 
--- helper function to refresh updated_at whenever a row is updated
+-- Helper function to refresh updated_at on row updates
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger AS $$
 BEGIN
@@ -48,6 +52,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Recreate trigger safely
 DROP TRIGGER IF EXISTS trg_jobs_updated_at ON jobs;
 
 CREATE TRIGGER trg_jobs_updated_at
