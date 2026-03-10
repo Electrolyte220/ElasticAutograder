@@ -3,7 +3,7 @@ package com.autograder.controller;
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
 import com.autograder.repository.JobRepository;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
@@ -164,4 +164,24 @@ public class JobController {
         return ResponseEntity.ok("Successfully deleted file.");
     }
 
+    @GetMapping({"/jobs/result/{id}"})
+    public ResponseEntity<JsonNode> downloadResults(@PathVariable Long id) {
+        Optional<Job> jobEntity = jobRepository.findById(id);
+        if(jobEntity.isEmpty()) {
+            JsonNode errObj = new StringNode("Unable to find job with id: " + id);
+            return ResponseEntity.status(404).body(errObj);
+        }
+        Job job = jobEntity.get();
+        if(job.getResultJson() == null) {
+            JsonNode errObj = new StringNode("Unable to get results for id: " + id);
+            return ResponseEntity.status(404).body(errObj);
+        }
+        JsonNode resultJson = new ObjectMapper().readTree(job.getResultJson());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDispositionFormData("attachment", "results.json");
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        return new ResponseEntity<>(resultJson, headers, HttpStatus.OK);
+    }
 }

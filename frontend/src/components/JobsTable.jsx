@@ -1,3 +1,5 @@
+import { downloadResults } from "../api/download_file";
+
 export default function JobsTable({ jobs }) {
   return (
     <table className="table">
@@ -10,6 +12,7 @@ export default function JobsTable({ jobs }) {
           <th>Created</th>
           <th>Score</th>
           <th>Tests</th>
+          <th>Download Results</th>
         </tr>
       </thead>
       <tbody>
@@ -36,10 +39,28 @@ export default function JobsTable({ jobs }) {
               <td>
                 {job.testsPassed ?? ""} / {job.testsTotal ?? ""}
               </td>
+              <td>
+                <button onClick={() => handleDownload(job.id)} disabled={job.status !== "SUCCEEDED" && job.status !== "FAILED"}>Download Results</button>
+              </td>
             </tr>
           );
         })}
       </tbody>
     </table>
   );
+}
+
+const handleDownload = async (id) => {
+  try {
+    const blob = await downloadResults(id);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "results.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(err) {
+    alert("Could not download results file.")
+    throw new Error("Could not download results file.\n" + err);
+  }
 }
