@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+backend/grading/graders/assignments/test1/**/__pycache__
