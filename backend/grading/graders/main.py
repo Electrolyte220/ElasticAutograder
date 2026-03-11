@@ -178,8 +178,8 @@ def main():
     )
 
     test_cases = [
-        {"name": "case_1", "args": [3]},
-        {"name": "case_2", "args": [7]},
+        {"name": "case_1", "args": [1]},
+        {"name": "case_2", "args": [3]},
     ]
 
     tests_passed = 0
