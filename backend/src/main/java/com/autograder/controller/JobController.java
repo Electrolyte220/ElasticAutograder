@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 // this must be changed in prod
-@CrossOrigin(origins = "https://elastic-autograder.vercel.app")
+@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequestMapping("/api")
 public class JobController {
