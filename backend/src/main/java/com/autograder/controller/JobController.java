@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 // this must be changed in prod
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "https://elastic-autograder.vercel.app")
 @RestController
 @RequestMapping("/api")
 public class JobController {
@@ -34,48 +34,55 @@ public class JobController {
     }
 
     /**
-     * Uploads file to the server, saves it to the grading folder (staging), creates a {@link Job} object and saves to the database.
+     * Uploads file to the server, saves it to the grading folder (staging), creates
+     * a {@link Job} object and saves to the database.
+     * 
      * @param file Submission file to upload
      * @return Map of file name -> job id, or error
      */
-    @PostMapping({"/jobs/upload"})
+    @PostMapping({ "/jobs/upload" })
     public ResponseEntity<Map<String, Object>> uploadFile(@RequestParam MultipartFile file) {
-        //save file, and add to db
+        // save file, and add to db
         String fileName = file.getOriginalFilename();
         try {
             byte[] bytes = file.getBytes();
             Path uploads = Path.of("grading/graders/assignments/test1");
-            Path filePath = Path.of(uploads +  "/" + fileName);
-            if(!Files.exists(uploads)) {
+            Path filePath = Path.of(uploads + "/" + fileName);
+            if (!Files.exists(uploads)) {
                 Files.createDirectories(uploads);
             }
-            if(Files.exists(filePath)) {
-                return ResponseEntity.status(409).body(Map.of("message", "File with this name already exists.", "id", -1L));
+            if (Files.exists(filePath)) {
+                return ResponseEntity.status(409)
+                        .body(Map.of("message", "File with this name already exists.", "id", -1L));
             }
             Files.write(filePath, bytes);
-            //TODO: change graderType to be dynamic in beta.
+            // TODO: change graderType to be dynamic in beta.
             Job job = new Job(fileName, "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
             return ResponseEntity.ok(Map.of("message", "Successfully uploaded file.", "id", job.getId()));
-        } catch(IOException e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Failed to read file: " + fileName, "id",-1L));
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to read file: " + fileName, "id", -1L));
         }
     }
 
     /**
      * Handles running a single uploaded job.
-     * First updates {@link Job} information with {@link JobStatus} and what time the job was started.
+     * First updates {@link Job} information with {@link JobStatus} and what time
+     * the job was started.
      * Then runs the answer key against the uploaded submission.
-     * Once completed, updates the job with the finished time of the job & saves to the database.
-     * @param id ID of job to run
+     * Once completed, updates the job with the finished time of the job & saves to
+     * the database.
+     * 
+     * @param id       ID of job to run
      * @param fileName File name of job to run
      * @return {@link JsonNode} for result of the job.
      */
-    @PostMapping({"/jobs/run/{id}"})
+    @PostMapping({ "/jobs/run/{id}" })
     public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody String fileName) {
         Optional<Job> jobEntity = jobRepository.findById(id);
         JsonNode errorObj = new StringNode("Unable to find job object for id " + id);
-        if(jobEntity.isEmpty()) return ResponseEntity.status(500).body(errorObj);
+        if (jobEntity.isEmpty())
+            return ResponseEntity.status(500).body(errorObj);
 
         Job job = jobEntity.get();
         job.setStatus(JobStatus.RUNNING);
@@ -84,8 +91,10 @@ public class JobController {
         jobRepository.saveAndFlush(job);
 
         try {
-            //only handles uploaded file currently, will change in beta to be a zip of files
-            ProcessBuilder builder = new ProcessBuilder("python3", "main.py",  String.format("./assignments/test1/%s", fileName), "./assignments/test1/answer_key/key.py");
+            // only handles uploaded file currently, will change in beta to be a zip of
+            // files
+            ProcessBuilder builder = new ProcessBuilder("python3", "main.py",
+                    String.format("./assignments/test1/%s", fileName), "./assignments/test1/answer_key/key.py");
             builder.directory(new File("grading/graders"));
             builder.redirectErrorStream(true);
 
@@ -93,7 +102,7 @@ public class JobController {
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             StringBuilder outputBuilder = new StringBuilder();
-            while((line = reader.readLine()) != null) {
+            while ((line = reader.readLine()) != null) {
                 outputBuilder.append(line).append("\n");
             }
             int exitCode = process.waitFor();
@@ -106,7 +115,7 @@ public class JobController {
             JsonNode jsonObj = new ObjectMapper().readTree(output);
 
             return ResponseEntity.ok(jsonObj);
-        } catch(IOException | InterruptedException e) {
+        } catch (IOException | InterruptedException e) {
             JsonNode errorObj1 = new StringNode(e.getMessage());
             return ResponseEntity.status(500).body(errorObj1);
         }
@@ -120,22 +129,25 @@ public class JobController {
 
     /**
      * Updates a job in the database after a job completes.
-     * First makes sure a job exists, then updates relevant fields, and saves changes to database.
-     * @param id ID of job to update
+     * First makes sure a job exists, then updates relevant fields, and saves
+     * changes to database.
+     * 
+     * @param id         ID of job to update
      * @param jobResults {@link JsonNode} of job results
      * @return Whether the job was updated or an error occurred
      */
     @PostMapping("/jobs/{id}/callback")
     public ResponseEntity<String> updateJob(@PathVariable Long id, @RequestBody JsonNode jobResults) {
         Optional<Job> jobEntity = jobRepository.findById(id);
-        if(jobEntity.isEmpty()) return ResponseEntity.status(500).body("Unable to find existing job with id " + id);
+        if (jobEntity.isEmpty())
+            return ResponseEntity.status(500).body("Unable to find existing job with id " + id);
 
         Job job = jobEntity.get();
         job.setStatus(JobStatus.valueOf(jobResults.get("status").asString()));
         job.setTestsPassed(jobResults.get("tests_passed").asInt());
         job.setTestsTotal(jobResults.get("tests_total").asInt());
         job.setScore(jobResults.get("score").asDecimal());
-        if(jobResults.get("error_message") != null) {
+        if (jobResults.get("error_message") != null) {
             job.setErrorMessage(jobResults.get("error_message").stringValue());
         }
         job.setResultJson(new ObjectMapper().writeValueAsString(jobResults.get("results")));
@@ -146,16 +158,17 @@ public class JobController {
 
     /**
      * Removes uploaded files once jobs have been run against them
+     * 
      * @param fileName File to delete
      * @return OK/Error if file could/could not be deleted
      */
-    @DeleteMapping({"/files/remove"})
+    @DeleteMapping({ "/files/remove" })
     public ResponseEntity<String> removeFile(@RequestBody String fileName) {
         Path filePath = Path.of("grading/graders/assignments/test1/" + fileName);
-        if(Files.exists(filePath)) {
+        if (Files.exists(filePath)) {
             try {
                 Files.delete(filePath);
-            }catch(IOException e) {
+            } catch (IOException e) {
                 return ResponseEntity.status(500).body("Unable to delete file.");
             }
         } else {
@@ -164,15 +177,15 @@ public class JobController {
         return ResponseEntity.ok("Successfully deleted file.");
     }
 
-    @GetMapping({"/jobs/result/{id}"})
+    @GetMapping({ "/jobs/result/{id}" })
     public ResponseEntity<JsonNode> downloadResults(@PathVariable Long id) {
         Optional<Job> jobEntity = jobRepository.findById(id);
-        if(jobEntity.isEmpty()) {
+        if (jobEntity.isEmpty()) {
             JsonNode errObj = new StringNode("Unable to find job with id: " + id);
             return ResponseEntity.status(404).body(errObj);
         }
         Job job = jobEntity.get();
-        if(job.getResultJson() == null) {
+        if (job.getResultJson() == null) {
             JsonNode errObj = new StringNode("Unable to get results for id: " + id);
             return ResponseEntity.status(404).body(errObj);
         }
