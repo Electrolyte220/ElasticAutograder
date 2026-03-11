@@ -8,19 +8,72 @@ Install these first before running anything in this repo.
 
 ### Required
 
-#### 1) Docker Desktop
-Used to run local containers (PostgreSQL + Redis). `kind` also depends on Docker to create local Kubernetes nodes.
+#### 1) Docker Desktop/Docker
+Used to run local containers (PostgreSQL + Redis). 
+Docker is needed for running the localhost postgreSQL database.
 
 - [Docker Desktop (official docs)](https://docs.docker.com/desktop/)
 - [Install Docker Desktop on Windows (official)](https://docs.docker.com/desktop/setup/install/windows-install/)
 
-#### 2) kubectl
+
+#### 2) Node.js 
+Used for running the frontend
+
+#### 3) Java 21
+Required for running the local version of springboot we use.
+(As of now version 4.0.3 :))
+
+#### 4) Python 
+Used for the backend scripts 
+
+### Steps for hosting 
+
+#### 1) Git clone the main branch repository
+```bash
+git clone https://github.com/Electrolyte220/ElasticAutograder 
+```
+#### 2) Ensure you're inside of the main elastic_autograder directory
+
+#### 3) Run the docker compose file to create an instance of a localhost postgreSQL database
+```bash
+docker compose up -d
+docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/create_job.sql
+```
+
+#### 4) Optional: Add mock data to databse
+```bash
+docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/seed_job.sql
+```
+
+#### 4) Open multiple terminals or command prompts
+Inside of terminal 1
+```bash 
+cd frontend
+npm install
+npm run dev
+```
+
+Inside of terminal 2
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+#### 5) Navigate to the localhost website 
+http://localhost:5173/
+OR
+just double check with the terminal hosting vite locally
+
+
+
+### Required for the future (ignore this for now)
+#### 1) kubectl
 Kubernetes CLI used to verify and interact with the local cluster (e.g., `kubectl get nodes`, `kubectl logs`).
 
 - [Install and Set Up kubectl on Windows (official Kubernetes docs)](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/)
 - [Kubernetes Tools Install Page (official)](https://kubernetes.io/docs/tasks/tools/)
 
-#### 3) kind
+#### 2) kind
 Tool for running a **local Kubernetes cluster** using Docker container “nodes.”
 
 - [kind Quick Start (official)](https://kind.sigs.k8s.io/docs/user/quick-start/)
