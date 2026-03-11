@@ -34,6 +34,7 @@ Used for the backend scripts
 ```bash
 git clone https://github.com/Electrolyte220/ElasticAutograder 
 ```
+
 #### 2) Ensure you're inside of the main elastic_autograder directory
 Change directories inside of the ElasticAutograder and run the following command
 ```bash
