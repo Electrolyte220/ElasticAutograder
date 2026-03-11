@@ -26,13 +26,19 @@ Required for running the local version of springboot we use.
 #### 4) Python 
 Used for the backend scripts 
 
-### Steps for hosting 
+#### 5) PostgreSQL 
+
+### Steps for hosting locally 
 
 #### 1) Git clone the main branch repository
 ```bash
 git clone https://github.com/Electrolyte220/ElasticAutograder 
 ```
 #### 2) Ensure you're inside of the main elastic_autograder directory
+Change directories inside of the ElasticAutograder and run the following command
+```bash
+git switch local-host-setup
+```
 
 #### 3) Run the docker compose file to create an instance of a localhost postgreSQL database
 ```bash
@@ -40,7 +46,7 @@ docker compose up -d
 docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/create_job.sql
 ```
 
-#### 4) Optional: Add mock data to databse
+#### Optional: Add mock data to databse
 ```bash
 docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/seed_job.sql
 ```
@@ -56,7 +62,8 @@ npm run dev
 Inside of terminal 2
 ```bash
 cd backend
-./gradlew bootRun --args='--spring.profiles.active=local'
+./gradlew bootRun --args='--spring.profiles.active=local' OR
+gradlew bootRun --args='--spring.profiles.active=local' (if using command prompt)
 ```
 
 #### 5) Navigate to the localhost website 
@@ -64,6 +71,10 @@ http://localhost:5173/
 OR
 just double check with the terminal hosting vite locally
 
+#### 6) Upload files from /mocksubmission
+submission1 is a failure
+submission2 passes teh test cases
+submission 3 & 4 should both fail (empty function and empty case scenarios)
 
 
 ### Required for the future (ignore this for now)
