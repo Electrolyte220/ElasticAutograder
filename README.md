@@ -40,17 +40,22 @@ docker compose up -d
 docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/create_job.sql
 ```
 
+#### 4) Optional: Add mock data to databse
+```bash
+docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/seed_job.sql
+```
+
 #### 4) Open multiple terminals or command prompts
 Inside of terminal 1
-Change directories to the frontend folder here
 ```bash 
-npm run install
+cd frontend
+npm install
 npm run dev
 ```
 
 Inside of terminal 2
-Change directories to the backend folder here 
 ```bash
+cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
