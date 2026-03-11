@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://elastic-autograder-backend.onrender.com/api";
 
 export async function runJob(jobId, fileName) {
   const response = await fetch(`${API_BASE}/jobs/run/${jobId}`, {
