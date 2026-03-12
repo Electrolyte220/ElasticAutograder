@@ -58,7 +58,7 @@ class JobTest {
         assertEquals(updated, job.getUpdatedAt());
     }
 
-    // Test the gradind metric such as score and test counts are stored correctly
+    // Test the grading metric such as score and test counts are stored correctly
     @Test
     void gradingResults_storeCorrectly() {
         Job job = new Job();
@@ -71,8 +71,8 @@ class JobTest {
         assertEquals(9, job.getTestsPassed());
         assertEquals(10, job.getTestsTotal());
     }
-    
-    //Test that Job status field can be updated across multuple enum states
+
+    //Test that Job status field can be updated across multiple enum states
     @Test
     void status_canBeUpdated() {
         Job job = new Job();
@@ -87,7 +87,7 @@ class JobTest {
         assertEquals(JobStatus.FAILED, job.getStatus());
     }
 
-    // Test that executing metadat such as error messages and result JSON are stored correctly
+    // Test that executing metadata such as error messages and result JSON are stored correctly
     @Test
     void errorMessage_and_resultJson_storeCorrectly() {
         Job job = new Job();
