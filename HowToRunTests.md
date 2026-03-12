@@ -1,11 +1,26 @@
 ## Testing
-Unit tests are located in backend/src/test/java/com/autograder/.
 
-### Running Tests
-Via Command Line:
+Unit tests are located in:
 
-Make sure you're in the backend folder and use the command "./gradlew test"
+```
+backend/src/test/java/com/autograder/
+```
 
-Via IntelliJ:
+## Running Tests
 
-Right-click backend/src/test/java → "Run 'All Tests'"
+### Command Line
+
+```bash
+cd backend
+./gradlew test
+```
+
+### IntelliJ
+
+Right-click:
+
+```
+backend/src/test/java
+```
+
+Then select **Run "All Tests"**.
