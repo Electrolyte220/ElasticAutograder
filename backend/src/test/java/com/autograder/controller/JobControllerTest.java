@@ -1,31 +1,45 @@
 package com.autograder.controller;
 
-import com.autograder.model.Job;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 
-import com.autograder.repository.JobRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.when;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.lang.reflect.Field;
-import java.nio.file.*;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import com.autograder.model.Job;
+import com.autograder.repository.JobRepository;
+import com.autograder.service.Fabric8GradingOrchestrator;
+import com.autograder.service.GradingOrchestrator;
 
 public class JobControllerTest {
 
     private JobRepository jobRepository;
     private JobController jobController;
 
+    // new part of the mock testing 
+    private GradingOrchestrator gradingOrchestrator;
+    private Fabric8GradingOrchestrator fabric8GradingOrchestrator;
+    
     @BeforeEach
     void setUp() throws Exception {
         jobRepository = Mockito.mock(JobRepository.class);
-        jobController = new JobController(jobRepository);
+        gradingOrchestrator = Mockito.mock(GradingOrchestrator.class);
+        fabric8GradingOrchestrator = Mockito.mock(Fabric8GradingOrchestrator.class);
+
+        jobController = new JobController(
+                jobRepository,
+                gradingOrchestrator,
+                fabric8GradingOrchestrator
+        );
+        
 
         // ensure upload directory starts clean
         Path uploadDir = Path.of("grading/graders/assignments/test1");

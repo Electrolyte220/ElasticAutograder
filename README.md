@@ -81,6 +81,21 @@ Change directories inside of the ElasticAutograder and run the following command
 git switch local-host-setup
 ```
 
+#### The next few steps can be done in minimum two terminals but having 2-4 open helps alot for setup
+
+#### 2) Create the kind cluster for the k8s side
+Run the bash command below to instantiate the kubernetes cluster if not done, yet.
+```bash
+# this part is responsible for the actual creation of the cluster
+kind create cluster --config k8s/kind-config.yaml --wait 60s
+```
+
+### For testing, run the following command
+```bash
+kubectl get nodes
+```
+This should return a list of k8 nodes, where it lists elastic-autograder as a control plane
+
 #### 3) Run the docker compose file to create an instance of a localhost postgreSQL database
 ```bash
 docker compose up -d
