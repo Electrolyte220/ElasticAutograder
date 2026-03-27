@@ -18,6 +18,7 @@ import com.autograder.model.Job;
 import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GradingOrchestrator;
+import com.autograder.service.GraderRegistry;
 
 public class JobControllerTest {
 
@@ -27,17 +28,20 @@ public class JobControllerTest {
     // new part of the mock testing 
     private GradingOrchestrator gradingOrchestrator;
     private Fabric8GradingOrchestrator fabric8GradingOrchestrator;
+    private GraderRegistry graderRegistry;
     
     @BeforeEach
     void setUp() throws Exception {
         jobRepository = Mockito.mock(JobRepository.class);
         gradingOrchestrator = Mockito.mock(GradingOrchestrator.class);
         fabric8GradingOrchestrator = Mockito.mock(Fabric8GradingOrchestrator.class);
+        graderRegistry = Mockito.mock(GraderRegistry.class);
 
         jobController = new JobController(
                 jobRepository,
                 gradingOrchestrator,
-                fabric8GradingOrchestrator
+                fabric8GradingOrchestrator,
+                graderRegistry
         );
         
 
@@ -73,7 +77,7 @@ public class JobControllerTest {
                 "print('hello')".getBytes()
         );
 
-        ResponseEntity<Map<String,Object>> response = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> response = jobController.uploadFile(file,"fib");
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("Successfully uploaded file.", response.getBody().get("message"));
@@ -91,10 +95,10 @@ public class JobControllerTest {
                 "print('hello')".getBytes()
         );
 
-        ResponseEntity<Map<String,Object>> first = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> first = jobController.uploadFile(file,"fib");
         assertEquals(200, first.getStatusCode().value());
 
-        ResponseEntity<Map<String,Object>> second = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> second = jobController.uploadFile(file,"fib");
         assertEquals(409, second.getStatusCode().value());
         assertEquals("File with this name already exists.", second.getBody().get("message"));
     }

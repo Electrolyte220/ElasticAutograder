@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
+import com.autograder.dto.GraderOptionResponse;
 import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GraderRegistry;
@@ -321,17 +322,16 @@ public class JobController {
         return cleaned;
     }
 
-    @PostMapping("/jobs/test-fabric8-logs/{id}")
-    public ResponseEntity<String> testFabric8Logs(@PathVariable Long id, @RequestBody String fileName) {
-        try {
-            fabric8GradingOrchestrator.createSubmissionConfigMap(id, fileName);
-            fabric8GradingOrchestrator.createGradingJob(id);
-            fabric8GradingOrchestrator.waitForJobCompletion(id, 60);
-            String logs = fabric8GradingOrchestrator.getJobLogs(id);
-            return ResponseEntity.ok(logs);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Fabric8 logs test failed: " + e.getMessage());
-        }
+    @GetMapping("/graders")
+    public ResponseEntity<List<GraderOptionResponse>> getGraders() {
+        List<GraderOptionResponse> graders = graderRegistry.getAll().stream()
+                .map(grader -> new GraderOptionResponse(
+                        grader.getKey(),
+                        grader.getLabel()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(graders);
     }
+
 }

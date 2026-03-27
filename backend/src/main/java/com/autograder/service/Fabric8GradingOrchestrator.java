@@ -63,7 +63,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         }
         finally {
             try{
-            deleteSubmissionConfigMap(configMapName);
+                deleteSubmissionConfigMap(configMapName);
             } catch (Exception e) {
                 // Log the error but don't fail the whole process if cleanup fails
                 System.err.println("Failed to delete ConfigMap " + configMapName + ": " + e.getMessage());
@@ -178,6 +178,8 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 }
             }
 
+            // move around sleep value depending on your preference
+            // alternatively punish user/developer using this by changing to 20000000000
             Thread.sleep(1000);
         }
 
