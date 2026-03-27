@@ -1,20 +1,23 @@
 package com.autograder.service;
 
-import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
-import io.fabric8.kubernetes.api.model.batch.v1.Job;
-import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.PodList;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import org.springframework.stereotype.Service;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
+
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.batch.v1.Job;
+import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+import com.autograder.model.GraderDefinition;
+
 @Primary
 @Service
 public class Fabric8GradingOrchestrator implements GradingOrchestrator {
@@ -26,28 +29,37 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     private static final String MANIFEST_PATH_IN_IMAGE = "/app/grader/manifest.json";
 
     private final KubernetesClient kubernetesClient;
+    private final GraderRegistry graderRegistry;
 
-    public Fabric8GradingOrchestrator(KubernetesClient kubernetesClient) {
+    public Fabric8GradingOrchestrator(KubernetesClient kubernetesClient, GraderRegistry graderRegistry) {
         this.kubernetesClient = kubernetesClient;
+        this.graderRegistry = graderRegistry;
     }
 
     @Override
-    public JsonNode runJobInKubernetes(Long jobId, String fileName) throws Exception {
+    public JsonNode runJobInKubernetes(Long jobId, String fileName, String graderType) throws Exception {
+        if (graderType == null || graderType.isBlank()) {
+            throw new IllegalArgumentException("graderType is required.");
+        }
+        GraderDefinition grader = graderRegistry.getRequired(graderType);
+
         String cleanedFileName = sanitizeFileName(fileName);
         String configMapName = "submission-job-" + jobId;
 
         try{
             createSubmissionConfigMap(jobId, cleanedFileName);
-            createGradingJob(jobId);
+            createGradingJob(jobId,grader);
             waitForJobCompletion(jobId, 60);
             String logs = getJobLogs(jobId);
 
-            ObjectMapper objectMapper = new ObjectMapper();
             return objectMapper.readTree(logs);
         } 
         // add catch error handling pls - we can be more specific with exception types and error messages as needed
-        catch (Exception e) {
-            throw new RuntimeException("Error during grading process: " + e.getMessage(), e);
+        catch (Exception err) {
+            throw new RuntimeException(
+                "Grading job " + jobId + " failed for grader '" + graderType + "': " + err.getMessage(),
+                err
+            );
         }
         finally {
             try{
@@ -85,10 +97,13 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .createOrReplace();
     }
 
-    public Job createGradingJob(Long jobId) {
+    public Job createGradingJob(Long jobId, GraderDefinition grader) {
         String jobName = "grading-job-" + jobId;
         String configMapName = "submission-job-" + jobId;
 
+        // important note for understanding this, this basically is just a yaml file so it'll look crazy unless you understand k8s yaml structure
+        // Template is under backend/grading/graders if you want a reference to how this should look in yaml format but this as pretty as it gets
+        // for using k8s :D 
         Job job = new JobBuilder()
                 .withNewMetadata()
                     .withName(jobName)
@@ -107,10 +122,10 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                             .withRestartPolicy("Never")
                             .addNewContainer()
                                 .withName("grader")
-                                .withImage(GRADER_IMAGE)
+                                .withImage(grader.getImageName())
                                 .withImagePullPolicy("IfNotPresent")
                                 .withCommand("python", "/app/main.py")
-                                .withArgs("/work/submission.py", MANIFEST_PATH_IN_IMAGE)
+                                .withArgs("/work/submission.py", grader.getManifestPath())
                                 .addNewVolumeMount()
                                     .withName("submission-volume")
                                     .withMountPath("/work")
@@ -127,6 +142,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .endSpec()
                 .build();
 
+        // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues 
         return kubernetesClient.batch().v1().jobs()
                 .inNamespace(NAMESPACE)
                 .resource(job)
