@@ -233,26 +233,27 @@ public class JobController {
     }
 
     @GetMapping("/jobs/result/{id}")
-    public ResponseEntity<JsonNode> downloadResults(@PathVariable Long id) {
+    public ResponseEntity<String> downloadResults(@PathVariable Long id, @RequestParam(defaultValue = "true") boolean fromTable) {
         Optional<Job> jobEntity = jobRepository.findById(id);
         if (jobEntity.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new StringNode("Unable to find job with id: " + id));
+                    .body("Unable to find job with id: " + id);
         }
 
         Job job = jobEntity.get();
         if (job.getResultJson() == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new StringNode("Unable to get results for id: " + id));
+                    .body("Unable to get results for id: " + id);
         }
 
         JsonNode resultJson = objectMapper.readTree(job.getResultJson());
-
+        String prettyJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(resultJson);
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentDispositionFormData("attachment", "results.json");
         headers.setContentType(MediaType.APPLICATION_JSON);
-
-        return new ResponseEntity<>(resultJson, headers, HttpStatus.OK);
+        if(fromTable) {
+            headers.setContentDispositionFormData("attachment", "results.json");
+        }
+        return new ResponseEntity<>(prettyJson, headers, HttpStatus.OK);
     }
 
     private void applyJobResults(Job job, JsonNode jobResults) throws IOException {

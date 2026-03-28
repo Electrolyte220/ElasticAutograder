@@ -64,7 +64,7 @@ function formatTests(data) {
     : "";
 }
 
-function downloadResultsCellRenderer({data}) {
+function downloadResultsCellRenderer({ data }) {
   const disabledStatus = data.status !== "SUCCEEDED" && data.status !== "FAILED";
   return (
     <button onClick={() => handleDownload(data.id)} disabled={disabledStatus}>
