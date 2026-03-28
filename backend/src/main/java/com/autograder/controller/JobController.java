@@ -179,7 +179,7 @@ public class JobController {
 
     @GetMapping("/jobs/recent")
     public ResponseEntity<List<Job>> getRecentJobs() {
-        return ResponseEntity.ok(jobRepository.findTop5ByOrderByCreatedAtDesc());
+        return ResponseEntity.ok(jobRepository.findAllOrderByCreatedAtDesc());
     }
 
     /**

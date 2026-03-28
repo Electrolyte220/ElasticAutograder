@@ -6,6 +6,7 @@ import JobsTable from "../components/JobsTable";
 const REFRESH_INTERVAL = 1000;
 
 export default function JobsBoard() {
+  const gridRef = useRef(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,7 +16,12 @@ export default function JobsBoard() {
     try {
       if (isInitial) setLoading(true);
       const data = await fetchRecentJobs();
-      setJobs(data);
+
+      if(isInitial || !gridRef.current?.api) {
+        setJobs(data);
+      } else {
+        gridRef.current.api.applyTransactionAsync({update: data})
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -47,7 +53,7 @@ export default function JobsBoard() {
 
         {!loading && !error && jobs.length > 0 && (
           <div className="card jobs-board-card">
-            <JobsTable jobs={jobs} />
+            <JobsTable jobs={jobs} gridRef={gridRef}/>
           </div>
         )}
       </div>
