@@ -26,7 +26,7 @@ void fullAutograderPipeline_executesSuccessfully() throws Exception {
     File manifest = new File("grading/image-build/" + problem + "/manifest.json");
 
     ProcessBuilder pb = new ProcessBuilder(
-            "py",
+            "python",
             "main.py",
             submission.getAbsolutePath(),
             manifest.getAbsolutePath()
