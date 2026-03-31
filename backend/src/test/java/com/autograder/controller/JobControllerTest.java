@@ -46,7 +46,7 @@ public class JobControllerTest {
         
 
         // ensure upload directory starts clean
-        Path uploadDir = Path.of("grading/graders/assignments/test1");
+        Path uploadDir = Path.of("grading/uploads");
         if (Files.exists(uploadDir)) {
             Files.walk(uploadDir)
                     .sorted((a,b) -> b.compareTo(a))
