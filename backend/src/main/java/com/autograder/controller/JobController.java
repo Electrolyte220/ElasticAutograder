@@ -1,18 +1,24 @@
 package com.autograder.controller;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import jakarta.persistence.EntityNotFoundException;
+import org.jspecify.annotations.NonNull;
+import org.springframework.data.util.Pair;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +43,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.StringNode;
 
 // this must be changed in prod
-@CrossOrigin(origins = "http://localhost:5173/")
+@SuppressWarnings("unused")
 @RestController
 @RequestMapping("/api")
 public class JobController {
@@ -69,55 +75,106 @@ public class JobController {
      * @return map of message + job id, or error
      */
     @PostMapping("/jobs/upload")
-    public ResponseEntity<Map<String, Object>> uploadFile(
+    public ResponseEntity<Map<Long, String>> uploadFile(
         @RequestParam MultipartFile file,
-        @RequestParam String graderType
-    ) {
-        String originalFileName = file.getOriginalFilename();
+        @RequestParam String graderType) {
+        if(file.getContentType().equals("application/zip")) {
+            try(ZipInputStream stream = new ZipInputStream(file.getInputStream())) {
+                ZipEntry entry;
+                while((entry = stream.getNextEntry()) != null) {
+                    File zipEntry = new File(UPLOAD_ROOT + "/" + entry.getName());
+                    if(zipEntry.isDirectory()) {
+                        zipEntry.mkdirs();
+                    } else {
+                        Files.copy(stream, zipEntry.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    stream.closeEntry();
+                }
+            } catch(IOException exception) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                        -1L, "Unable to read zip contents."));
+            }
+        } else {
+            try {
+                String originalFileName = file.getOriginalFilename();
+                String fileName = sanitizeFileName(originalFileName);
+                Path filePath = UPLOAD_ROOT.resolve(fileName).normalize();
+                Files.write(filePath, file.getBytes());
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(-1L, "Failed to save uploaded file."));
+            }
+        }
+        try(Stream<Path> paths = Files.walk(UPLOAD_ROOT)) {
+            Map<Long, String> results = new HashMap<>();
+            List<Path> pathList = paths.filter(Files::isRegularFile).toList();
+
+            for(Path path : pathList) {
+                File uploadedFile = new File(path.toUri());
+                String fileName = uploadedFile.getName();
+                Pair<HttpStatus, Pair<Long, String>> response = getResponse(uploadedFile, graderType, fileName);
+                if(response.getFirst().equals(HttpStatus.OK)) {
+                    results.put(response.getSecond().getFirst(), response.getSecond().getSecond());
+                } else {
+                    return ResponseEntity.status(response.getFirst())
+                            .body(Map.of(response.getSecond().getFirst(), response.getSecond().getSecond()));
+                }
+            }
+            return ResponseEntity.ok(results);
+        } catch(IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    -1L, "Unable to read uploaded files."));
+        }
+    }
+
+    @PostMapping("jobs/from-id")
+    public ResponseEntity<String> getFileNameFromId(@RequestParam long id) {
+        try {
+            Job job = jobRepository.getReferenceById(id);
+            String fileName = job.getOriginalFilename();
+            return ResponseEntity.ok(fileName);
+        } catch(EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Job with id:" + id + " not found.");
+        }
+    }
+
+    private @NonNull Pair<HttpStatus, Pair<Long, String>> getResponse(File file, String graderType, String originalFileName) {
+        String fileName = sanitizeFileName(originalFileName);
+        String cleanedGraderType = graderType.trim();
+
+        graderRegistry.getRequired(cleanedGraderType);
 
         try {
-            String fileName = sanitizeFileName(originalFileName);
-            String cleanedGraderType = graderType.trim();
-
-            graderRegistry.getRequired(cleanedGraderType);
-
-            if (!Files.exists(UPLOAD_ROOT)) {
+            /*if(! Files.exists(UPLOAD_ROOT)) {
                 Files.createDirectories(UPLOAD_ROOT);
             }
 
             Path filePath = UPLOAD_ROOT.resolve(fileName).normalize();
 
-            if (Files.exists(filePath)) {
+            if(Files.exists(filePath)) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(Map.of(
                                 "message", "File with this name already exists.",
-                                "id", -1L
+                                "id", - 1L
                         ));
             }
 
-            Files.write(filePath, file.getBytes());
+            Files.write(filePath, file.getBytes());*/
 
             // TODO: make grader type dynamic later
             Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Successfully uploaded file.",
-                    "id", job.getId()
-            ));
+            return Pair.of(HttpStatus.OK, Pair.of(job.getId(), "Successfully uploaded file."));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of(
-                            "message", e.getMessage(),
-                            "id", -1L
-                    ));
-        } catch (IOException e) {
+            return Pair.of(HttpStatus.BAD_REQUEST, Pair.of(-1L, e.getMessage()));
+        } /*catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "message", "Failed to save uploaded file.",
                             "id", -1L
                     ));
-        }
+        }*/
     }
 
     /**
@@ -180,6 +237,21 @@ public class JobController {
     @GetMapping("/jobs/recent")
     public ResponseEntity<List<Job>> getRecentJobs() {
         return ResponseEntity.ok(jobRepository.findAllOrderByCreatedAtDesc());
+    }
+
+    @GetMapping("jobs/multi-submission")
+    public ResponseEntity<List<Job>> getJobsInRange(@RequestParam("from") long minId, @RequestParam("to") long maxId) {
+        long min = minId;
+        long max = maxId;
+        if(min > max) {
+            long temp = min;
+            min = max;
+            max = temp;
+        }
+        if(min < 0) min = 0;
+        long latestId = jobRepository.findAllOrderByIdAsc().get((int) jobRepository.count() -1).getId();
+        if(max > latestId) max = latestId;
+        return ResponseEntity.ok(jobRepository.selectAllInRange(min, max));
     }
 
     /**
@@ -256,12 +328,12 @@ public class JobController {
         return new ResponseEntity<>(prettyJson, headers, HttpStatus.OK);
     }
 
-    private void applyJobResults(Job job, JsonNode jobResults) throws IOException {
+    private void applyJobResults(Job job, JsonNode jobResults) {
         if (jobResults == null || jobResults.get("status") == null) {
             throw new IllegalArgumentException("Grader result is missing required field: status");
         }
 
-        job.setStatus(parseJobStatus(jobResults.get("status").asText()));
+        job.setStatus(parseJobStatus(jobResults.get("status").asString()));
 
         if (jobResults.has("tests_passed")) {
             job.setTestsPassed(jobResults.get("tests_passed").asInt());
@@ -278,7 +350,7 @@ public class JobController {
         }
 
         if (jobResults.has("error_message") && !jobResults.get("error_message").isNull()) {
-            job.setErrorMessage(jobResults.get("error_message").asText());
+            job.setErrorMessage(jobResults.get("error_message").asString());
         } else {
             job.setErrorMessage(null);
         }

@@ -7,6 +7,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<JobsBoard />} />
       <Route path="/submit" element={<SubmitJobPage />} />
+      <Route path="/multi-submission" element={<JobsBoard />} />
     </Routes>
   );
 }

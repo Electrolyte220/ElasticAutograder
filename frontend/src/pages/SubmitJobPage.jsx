@@ -4,6 +4,7 @@ import { uploadFile } from "../api/upload_file";
 import { runJob } from "../api/run_job";
 import { updateDB } from "../api/update_db";
 import { removeFile } from "../api/remove_uploaded_file";
+import { fetchFileNameFromId } from "../api/get_filename_from_id";
 
 const API_BASE = "http://localhost:8080/api";
 
@@ -60,13 +61,22 @@ export default function SubmitJobPage() {
       const message = await uploadFile(file, selectedGrader);
       setStatus(message.message);
 
-      const jobResponse = await runJob(message.id, file.name);
-      const jobResults = await jobResponse.json();
+      let minId = Object.keys(message)[0];
+      let maxId = Object.keys(message)[Object.keys(message).length - 1];
+      if (minId === maxId) navigate("/");
+      else {
+        navigate(`/multi-submission?from=${minId}&to=${maxId}`)
+      }
+      console.log("length:" + Object.keys(message).length);
+      for (let i = 0; i < Object.keys(message).length; i++) {
+        let id = Object.keys(message)[i];
+        const fileName = await fetchFileNameFromId(id);
+        const jobResponse = await runJob(id, fileName);
+        const jobResults = await jobResponse.json();
 
-      await updateDB(message.id, jobResults);
-      await removeFile(file.name);
-
-      navigate("/");
+        await updateDB(id, jobResults);
+        await removeFile(fileName);
+      }
     } catch (err) {
       setStatus(err.message);
     }
