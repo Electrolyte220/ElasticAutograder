@@ -19,7 +19,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.util.Pair;
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -72,7 +71,7 @@ public class JobController {
      * creates a Job object, and saves it to the database.
      *
      * @param file submission file to upload
-     * @return map of message + job id, or error
+     * @return map of job id + response body, or error
      */
     @PostMapping("/jobs/upload")
     public ResponseEntity<Map<Long, String>> uploadFile(
@@ -96,9 +95,16 @@ public class JobController {
             }
         } else {
             try {
+                if(!Files.exists(UPLOAD_ROOT)) {
+                    Files.createDirectories(UPLOAD_ROOT);
+                }
                 String originalFileName = file.getOriginalFilename();
                 String fileName = sanitizeFileName(originalFileName);
                 Path filePath = UPLOAD_ROOT.resolve(fileName).normalize();
+                if(Files.exists(filePath)) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(Map.of(-1L, "File with this name already exists."));
+                }
                 Files.write(filePath, file.getBytes());
             } catch (IOException e) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -112,7 +118,7 @@ public class JobController {
             for(Path path : pathList) {
                 File uploadedFile = new File(path.toUri());
                 String fileName = uploadedFile.getName();
-                Pair<HttpStatus, Pair<Long, String>> response = getResponse(uploadedFile, graderType, fileName);
+                Pair<HttpStatus, Pair<Long, String>> response = createJob(uploadedFile, graderType, fileName);
                 if(response.getFirst().equals(HttpStatus.OK)) {
                     results.put(response.getSecond().getFirst(), response.getSecond().getSecond());
                 } else {
@@ -138,29 +144,20 @@ public class JobController {
         }
     }
 
-    private @NonNull Pair<HttpStatus, Pair<Long, String>> getResponse(File file, String graderType, String originalFileName) {
+    /**
+     * Creates a new {@link Job} object for input parameters.
+     * @param file File to create a job for.
+     * @param graderType Grader type to run job against.
+     * @param originalFileName Actual file name to run the job on.
+     * @return pair of {@link HttpStatus} & pair of job id + status message
+     */
+    private @NonNull Pair<HttpStatus, Pair<Long, String>> createJob(File file, String graderType, String originalFileName) {
         String fileName = sanitizeFileName(originalFileName);
         String cleanedGraderType = graderType.trim();
 
         graderRegistry.getRequired(cleanedGraderType);
 
         try {
-            /*if(! Files.exists(UPLOAD_ROOT)) {
-                Files.createDirectories(UPLOAD_ROOT);
-            }
-
-            Path filePath = UPLOAD_ROOT.resolve(fileName).normalize();
-
-            if(Files.exists(filePath)) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(Map.of(
-                                "message", "File with this name already exists.",
-                                "id", - 1L
-                        ));
-            }
-
-            Files.write(filePath, file.getBytes());*/
-
             // TODO: make grader type dynamic later
             Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
@@ -168,13 +165,7 @@ public class JobController {
             return Pair.of(HttpStatus.OK, Pair.of(job.getId(), "Successfully uploaded file."));
         } catch (IllegalArgumentException e) {
             return Pair.of(HttpStatus.BAD_REQUEST, Pair.of(-1L, e.getMessage()));
-        } /*catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of(
-                            "message", "Failed to save uploaded file.",
-                            "id", -1L
-                    ));
-        }*/
+        }
     }
 
     /**
@@ -239,6 +230,12 @@ public class JobController {
         return ResponseEntity.ok(jobRepository.findAllOrderByCreatedAtDesc());
     }
 
+    /**
+     * Gets list of {@link Job} (likely from zip) submissions. Will also sanitize inputs as a sanity check.
+     * @param minId Min id to start from
+     * @param maxId Max id to stop at
+     * @return List of jobs in the provided range
+     */
     @GetMapping("jobs/multi-submission")
     public ResponseEntity<List<Job>> getJobsInRange(@RequestParam("from") long minId, @RequestParam("to") long maxId) {
         long min = minId;
