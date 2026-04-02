@@ -33,6 +33,33 @@ They check:
 - The system maintains consistent submission data  
 
 ---
+#### GraderRegistry Tests
+
+These tests verify that grader definitions are correctly registered and returned by the system.
+
+They check:
+
+- A valid grader key returns the correct grader definition  
+- The returned grader contains the expected label, image name, and manifest path  
+- Invalid grader keys are handled properly  
+
+These tests help confirm that the backend can correctly look up the grader configuration needed before creating grading jobs.
+
+---
+
+#### Fabric8GradingOrchestrator Tests
+
+These tests verify that Kubernetes job creation logic is built correctly before being sent to the cluster.
+
+They check:
+
+- The grading job is created with the correct job name  
+- The correct grader container image is used  
+- The correct submission path and manifest path are passed as container arguments  
+
+These tests help ensure that the backend constructs grading jobs correctly and sends the right configuration to Kubernetes.
+
+---
 
 ## System Test
 
@@ -65,7 +92,9 @@ Without testing, issues in file handling, storage, or grading execution could go
 
 ## Running Tests
 
-### Run all tests
+All backend tests are run from the `backend` directory.
+
+### 1. Move into the backend folder
 
 ```bash
-./gradlew test
+cd backend
