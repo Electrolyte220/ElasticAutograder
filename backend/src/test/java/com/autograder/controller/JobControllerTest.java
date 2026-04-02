@@ -1,34 +1,52 @@
 package com.autograder.controller;
 
-import com.autograder.model.Job;
+import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 
-import com.autograder.repository.JobRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.when;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.lang.reflect.Field;
-import java.nio.file.*;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import com.autograder.model.Job;
+import com.autograder.repository.JobRepository;
+import com.autograder.service.Fabric8GradingOrchestrator;
+import com.autograder.service.GradingOrchestrator;
+import com.autograder.service.GraderRegistry;
 
 public class JobControllerTest {
 
     private JobRepository jobRepository;
     private JobController jobController;
 
+    // new part of the mock testing 
+    private GradingOrchestrator gradingOrchestrator;
+    private Fabric8GradingOrchestrator fabric8GradingOrchestrator;
+    private GraderRegistry graderRegistry;
+    
     @BeforeEach
     void setUp() throws Exception {
         jobRepository = Mockito.mock(JobRepository.class);
-        jobController = new JobController(jobRepository);
+        gradingOrchestrator = Mockito.mock(GradingOrchestrator.class);
+        fabric8GradingOrchestrator = Mockito.mock(Fabric8GradingOrchestrator.class);
+        graderRegistry = Mockito.mock(GraderRegistry.class);
+
+        jobController = new JobController(
+                jobRepository,
+                gradingOrchestrator,
+                fabric8GradingOrchestrator,
+                graderRegistry
+        );
+        
 
         // ensure upload directory starts clean
-        Path uploadDir = Path.of("grading/graders/assignments/test1");
+        Path uploadDir = Path.of("grading/uploads");
         if (Files.exists(uploadDir)) {
             Files.walk(uploadDir)
                     .sorted((a,b) -> b.compareTo(a))
@@ -59,7 +77,7 @@ public class JobControllerTest {
                 "print('hello')".getBytes()
         );
 
-        ResponseEntity<Map<String,Object>> response = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> response = jobController.uploadFile(file,"fib");
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("Successfully uploaded file.", response.getBody().get("message"));
@@ -77,10 +95,10 @@ public class JobControllerTest {
                 "print('hello')".getBytes()
         );
 
-        ResponseEntity<Map<String,Object>> first = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> first = jobController.uploadFile(file,"fib");
         assertEquals(200, first.getStatusCode().value());
 
-        ResponseEntity<Map<String,Object>> second = jobController.uploadFile(file);
+        ResponseEntity<Map<String,Object>> second = jobController.uploadFile(file,"fib");
         assertEquals(409, second.getStatusCode().value());
         assertEquals("File with this name already exists.", second.getBody().get("message"));
     }
