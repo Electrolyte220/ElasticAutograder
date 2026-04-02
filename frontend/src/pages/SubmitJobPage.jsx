@@ -23,7 +23,7 @@ export default function SubmitJobPage() {
       setStatus("Uploading...");
       const message = await uploadFile(file);
       setStatus(message.message);
-      navigate("/");
+      navigate("/jobs");
       const jobResponse = await runJob(message.id, file.name);
       const jobResults = await jobResponse.json();
       await updateDB(message.id, jobResults);
@@ -38,17 +38,15 @@ export default function SubmitJobPage() {
       <div className="jobs-board-shell">
         <div className="top-bar">
           <h1 className="page-title">Submit Job</h1>
-          <Link to="/" className="button nav-button">
+          <Link to="/jobs" className="button nav-button">
             Back to Jobs
           </Link>
         </div>
-
         <div className="card">
           <div className="form-group">
             <label className="label">Upload Submission</label>
             <input className="input" type="file" onChange={handleFileChange}/>
           </div>
-
           <button className="button" onClick={handleSubmit}>
             Submit Job
           </button>
