@@ -1,11 +1,11 @@
 :root {
-  --bg: #111827;
-  --surface: #1f2937;
-  --surface-2: #111827;
+  --bg: #1a1a1a;
+  --surface: #2a2a2a;
+  --surface-2: #1a1a1a;
   --text: #f9fafb;
   --muted: #9ca3af;
-  --border: #374151;
-  --accent: #60a5fa;
+  --border: #3d1515;
+  --accent: #cc0033;
 
   --success: #22c55e;
   --warning: #f59e0b;
@@ -13,10 +13,6 @@
 
   --table-header: #e5e7eb;
   --table-header-text: #111827;
-}
-
-* {
-  box-sizing: border-box;
 }
 
 body {
