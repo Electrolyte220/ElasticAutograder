@@ -5,7 +5,7 @@ import { runJob } from "../api/run_job";
 import { updateDB } from "../api/update_db";
 import { removeFile } from "../api/remove_uploaded_file";
 
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = "https://ea.electrolyte.dev/api";
 
 export default function SubmitJobPage() {
   const [file, setFile] = useState(null);
