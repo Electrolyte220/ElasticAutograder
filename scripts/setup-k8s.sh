@@ -4,7 +4,7 @@ set -euo pipefail
 CLUSTER_NAME="elastic-autograder"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 KIND_CONFIG="${REPO_ROOT}/k8s/kind-config.yaml"
 IMAGE_BUILD_ROOT="${REPO_ROOT}/backend/grading/image-build"
 
@@ -26,7 +26,7 @@ fi
 echo "Checking for kind cluster '${CLUSTER_NAME}'..."
 if ! kind get clusters | grep -xq "${CLUSTER_NAME}"; then
   echo "Cluster not found. Creating from config..."
-  kind create cluster --config "${KIND_CONFIG}"
+  kind create cluster --name "${CLUSTER_NAME}" --config "${KIND_CONFIG}"
 else
   echo "Cluster '${CLUSTER_NAME}' already exists."
 fi
