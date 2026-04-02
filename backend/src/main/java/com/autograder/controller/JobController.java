@@ -36,8 +36,6 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.StringNode;
 
-// this must be changed in prod
-@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequestMapping("/api")
 public class JobController {
