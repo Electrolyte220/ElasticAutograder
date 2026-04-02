@@ -1,96 +1,131 @@
 import { useNavigate } from "react-router-dom";
+import "../styles/LandingPage.css";
+import {LightningIcon, ShieldIcon, ChartIcon} from "../components/Icons.jsx";
+
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
+  const workflowSteps = [
+    {
+      step: "1",
+      title: "Upload Submission",
+      text: "Course staff upload a student submission through the web interface.",
+    },
+    {
+      step: "2",
+      title: "Select Grader",
+      text: "Choose the grader type so the backend can route the submission to the correct grading image.",
+    },
+    {
+      step: "3",
+      title: "Run in Kubernetes",
+      text: "The backend creates an isolated grading job that executes the submission in a containerized environment.",
+    },
+    {
+      step: "4",
+      title: "Review Results",
+      text: "Track job status changes and inspect outcomes directly from the jobs view.",
+    },
+  ];
+
+  const supportedGraders = [
+    {
+      title: "Fibonacci",
+      text: "A classic problem that compares naive recursion, memoization, and iterative dynamic programming.",
+    },
+    {
+      title: "Two Sum",
+      text: "A common interview problem that tests array logic, hash map use, and exact output correctness.",
+    },
+  ];
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "0px 24px",
-      background: "var(--bg)",
-      color: "var(--text)",
-      textAlign: "center",
-      marginTop: "-60px"
-    }}>
-      <h1 style={{
-        fontSize: "4rem",
-        fontWeight: "800",
-        marginBottom: "16px",
-        color: "var(--accent)"
-      }}>
-        Elastic Autograder
-      </h1>
+    <div className="landing-page">
+      <div className="landing-hero">
+        <h1 className="landing-title">Elastic Autograder</h1>
 
-      <p style={{
-        fontSize: "1.25rem",
-        color: "var(--muted)",
-        marginBottom: "48px",
-        maxWidth: "600px"
-      }}>
-        A scalable, automated grading pipeline for course staff. Upload submissions, run graders, and view results in real time.
-      </p>
+        <p className="landing-subtitle">
+          A scalable, automated grading pipeline for course staff. Upload
+          submissions, run graders, and track job status and results in real
+          time.
+        </p>
 
-      <div style={{
-        display: "flex",
-        gap: "24px",
-        marginBottom: "48px",
-        flexWrap: "wrap",
-        justifyContent: "center"
-      }}>
-        <div style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "200px"
-        }}>
-          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⚡</div>
-          <h3 style={{ margin: "0 0 8px 0" }}>Fast Grading</h3>
-          <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-            Jobs are queued and executed automatically with real-time status updates.
-          </p>
+        <div className="landing-feature-grid">
+          <div className="landing-card">
+            <div className="landing-card-icon">
+              <LightningIcon />
+            </div>
+            <h3>Fast Grading</h3>
+            <p>
+              Jobs move automatically through queued, running, and completed
+              states with live status updates.
+            </p>
+          </div>
+
+          <div className="landing-card">
+            <div className="landing-card-icon">
+              <ShieldIcon />
+            </div>
+            <h3>Secure Execution</h3>
+            <p>
+              Student code runs in isolated containers, helping protect the host
+              system during grading.
+            </p>
+          </div>
+
+          <div className="landing-card">
+            <div className="landing-card-icon">
+              <ChartIcon />
+            </div>
+            <h3>Real-Time Results</h3>
+            <p>
+              View job progress, grading outcomes, and failure states as backend
+              execution updates are recorded.
+            </p>
+          </div>
         </div>
 
-        <div style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "200px"
-        }}>
-          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🔒</div>
-          <h3 style={{ margin: "0 0 8px 0" }}>Secure Execution</h3>
-          <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-            Student code runs in isolated containers, keeping your system safe.
-          </p>
-        </div>
+        <div className="landing-actions">
+          <button
+            className="button landing-primary-button"
+            onClick={() => navigate("/jobs")}
+          >
+            Get Started
+          </button>
 
-        <div style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "200px"
-        }}>
-          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📊</div>
-          <h3 style={{ margin: "0 0 8px 0" }}>Real-time Results</h3>
-          <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-            View scores, test results, and error messages as soon as grading completes.
-          </p>
+          <a href="#how-it-works" className="landing-more-details">
+            More details below ↓
+          </a>
         </div>
       </div>
 
-      <button
-        className="button"
-        style={{ fontSize: "1.1rem", padding: "14px 32px" }}
-        onClick={() => navigate("/jobs")}
-      >
-        Get Started
-      </button>
+      <section id="how-it-works" className="landing-section">
+        <h2 className="landing-section-title">How It Works</h2>
+
+        <div className="workflow-grid">
+          {workflowSteps.map((item) => (
+            <div key={item.step} className="workflow-card">
+              <div className="workflow-step">{item.step}</div>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <h2 className="landing-section-title">Supported Graders</h2>
+
+        <div className="graders-grid">
+          {supportedGraders.map((grader) => (
+            <div key={grader.title} className="grader-card">
+              <h3>{grader.title}</h3>
+              <p>{grader.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
