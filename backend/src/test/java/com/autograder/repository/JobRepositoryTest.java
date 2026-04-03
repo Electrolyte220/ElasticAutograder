@@ -23,18 +23,18 @@ public class JobRepositoryTest {
     }
 
     /**
-     * Test 1: findTop5ByOrderByCreatedAtDesc returns jobs newest-first.
+     * Test 1: findAllOrderByCreatedAtDesc returns jobs newest-first.
      */
     @Test
-    void findTop5ByOrderByCreatedAtDesc_returnsJobsNewestFirst() {
+    void findAllOrderByCreatedAtDesc_returnsJobsNewestFirst() {
         Job oldest = new Job("oldest.py", "Fibonacci", OffsetDateTime.now().minusDays(3), JobStatus.QUEUED);
         Job middle = new Job("middle.py", "Fibonacci", OffsetDateTime.now().minusDays(1), JobStatus.QUEUED);
         Job newest = new Job("newest.py", "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED);
 
-        when(jobRepository.findTop5ByOrderByCreatedAtDesc())
+        when(jobRepository.findAllOrderByCreatedAtDesc())
                 .thenReturn(Arrays.asList(newest, middle, oldest));
 
-        List<Job> results = jobRepository.findTop5ByOrderByCreatedAtDesc();
+        List<Job> results = jobRepository.findAllOrderByCreatedAtDesc();
 
         assertEquals(3, results.size());
         assertEquals("newest.py", results.get(0).getOriginalFilename());
@@ -43,10 +43,10 @@ public class JobRepositoryTest {
     }
 
     /**
-     * Test 2: findTop5ByOrderByCreatedAtDesc returns at most 5 results.
+     * Test 2: findAllOrderByCreatedAtDesc returns at most 5 results.
      */
     @Test
-    void findTop5ByOrderByCreatedAtDesc_capsAtFiveResults() {
+    void findAllOrderByCreatedAtDesc_capsAtFiveResults() {
         List<Job> fiveJobs = Arrays.asList(
                 new Job("file1.py", "Fibonacci", OffsetDateTime.now(), JobStatus.QUEUED),
                 new Job("file2.py", "Fibonacci", OffsetDateTime.now().minusHours(1), JobStatus.QUEUED),
@@ -55,9 +55,9 @@ public class JobRepositoryTest {
                 new Job("file5.py", "Fibonacci", OffsetDateTime.now().minusHours(4), JobStatus.QUEUED)
         );
 
-        when(jobRepository.findTop5ByOrderByCreatedAtDesc()).thenReturn(fiveJobs);
+        when(jobRepository.findAllOrderByCreatedAtDesc()).thenReturn(fiveJobs);
 
-        List<Job> results = jobRepository.findTop5ByOrderByCreatedAtDesc();
+        List<Job> results = jobRepository.findAllOrderByCreatedAtDesc();
 
         assertEquals(5, results.size());
     }

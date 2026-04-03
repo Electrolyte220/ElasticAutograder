@@ -3,57 +3,152 @@ This project is an open source framework to handle grading jobs concurrently. Th
 
 ## One-Time Installs (per machine)
 
-Install these first before running anything in this repo.
+Install these first before running anything in this repo.  
+Additionally, there is currently a **Windows ONLY setup script** to download/check a majority of these dependencies **except Docker Desktop**.
 
-### Required
+### Required Dependencies & Download Links
 
-#### 1) Docker Desktop/Docker
-Used to run local containers (PostgreSQL + Redis). 
-Docker is needed for running the localhost postgreSQL database.
+#### Windows only script to download a majority of dependencies + manually download Docker Desktop
+
+This script currently requires **`winget`**.
+
+If `winget` is missing, this setup script will not work until `winget` is available.
+
+If `winget` is not recognized in PowerShell:
+
+1. Install or update **App Installer** from the Microsoft Store.
+2. Open a new PowerShell window and run:
+   ```powershell
+   winget --version
+   ```
+3. If `winget` is still missing, run:
+   ```powershell
+   Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
+   ```
+4. Open a new PowerShell window and verify again:
+   ```powershell
+   winget --version
+   ```
+
+Docker Desktop should be downloaded **manually**.  
+This is the only manual required download because it deals with machine-specific setup such as system requirements, virtualization, and WSL support.
 
 - [Docker Desktop (official docs)](https://docs.docker.com/desktop/)
 - [Install Docker Desktop on Windows (official)](https://docs.docker.com/get-started/get-docker/)
 
+This script downloads/checks a majority of the remaining dependencies automatically:
 
-#### 2) Node.js 
-Used for running the React + Vite frontend. 
+Must be run in windows powershell terminal from root project directory
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-beta.ps1
+```
+If the setup script installs a new dependency but the command is still not recognized, close and reopen PowerShell or restart VS Code, then verify the command again. \
+\
+This script checks/downloads the following:
 
-Recommended: install a recent LTS version of Node.js, npm comes with Node.js 
+- Node.js
+- npm
+- Python
+- Java 21
+- `kubectl`
+- `kind`
 
-Verify installation with the following in command prompt
+It does **not** install Docker Desktop.
+
+---
+
+#### Docker Desktop / Docker
+Used to run local containers such as PostgreSQL and Redis.  
+Docker is needed for running the local PostgreSQL database.
+
+- [Docker Desktop (official docs)](https://docs.docker.com/desktop/)
+- [Install Docker Desktop on Windows (official)](https://docs.docker.com/get-started/get-docker/)
+
+After installation, verify:
+
 ```bash
-node -v 
-npm -v 
+docker --version
 ```
 
-#### 3) Java 21
-Required for running the local version of springboot we use.
+---
+
+#### Java 21
+Required for running the local Spring Boot backend we use.
 
 - [Download from the official site](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 
-After installation, verify: 
+After installation, verify:
+
 ```bash
-java -version 
+java -version
 ```
 
-#### 4) Python 3 
-Used for the backend scripting
+---
+
+#### Python 3
+Used for backend scripting.
 
 - [Download from the official site](https://www.python.org/downloads/)
 
-After install, verify:
+After installation, verify:
+
 ```bash
 python --version
 ```
 
+---
 
-#### 5) PostgreSQL 
-Used for the psql command line interace to interact/query databases hosted via render or other providers from terminals.\
-The local development database itself runs through Docker Compose 
+#### Node.js
+Used for running the React + Vite frontend.
+
+Recommended: install a recent LTS version of Node.js. `npm` comes with Node.js.
+
+- [Download from the official site](https://nodejs.org/en/download)
+
+Verify installation with the following in command prompt:
+
+```bash
+node -v
+npm -v
+```
+
+---
+
+#### kind
+Used to create and run the local Kubernetes cluster that Elastic Autograder uses during beta testing.
+
+- [kind Quick Start (official docs)](https://kind.sigs.k8s.io/docs/user/quick-start/)
+
+After installation, verify:
+
+```bash
+kind --version
+```
+
+---
+
+#### kubectl
+Used to interact with the local Kubernetes cluster and inspect jobs, pods, and other Kubernetes resources.
+
+- [Official documentation to download](https://kubernetes.io/docs/tasks/tools/)
+
+After installation, verify:
+
+```bash
+kubectl version --client
+```
+
+---
+
+#### PostgreSQL
+Optional. Only needed if you want to connect manually to the database using the `psql` command-line client.  
+The local development database itself runs through Docker Compose, so this is **not required** just to run the project.
+
 - [Download from the official site](https://www.postgresql.org/download/)
-Note: When installing avoid setting up a postgreSQL database on localport actively 
 
-#### 6) Run the following commands to double check everything was installed properly 
+Note: when installing, avoid setting up a local PostgreSQL server on the same ports used by this project, because it can interfere with the current port setup.
+
+#### Run the following commands to double check everything was installed properly 
 
 ```bash
 docker --version
@@ -64,63 +159,78 @@ python --version
 psql --version
 ```
 
-### Steps for hosting locally 
+### Running the project locally
 
-#### 1) Git clone the main branch repository
+#### Git clone the main branch repository
 ```bash
 git clone https://github.com/Electrolyte220/ElasticAutograder.git
 cd ElasticAutograder
-git switch local-host-setup
+git switch k8s
 ```
-The local-host-setup branch is intended to provide a stable local development setup using a Docker-backed local
-services.
 
-#### 2) Ensure you're inside of the main elastic_autograder directory
+#### Ensure you're inside of the main elastic_autograder directory
 Change directories inside of the ElasticAutograder and run the following command
 ```bash
-git switch local-host-setup
+git switch k8s
 ```
 
-#### 3) Run the docker compose file to create an instance of a localhost postgreSQL database
+#### The next steps are easiest with at least two open terminals.
+
+#### Create the kind cluster for the k8s side
+Depends on operating system,
+(IMPORTANT: This assumes you have no existing cluster or images pre-built, if you do delete them before running scripts)
+
+If on windows, open up a command prompt terminal and run the following
+```bash
+scripts\setup-k8s.bat
+```
+
+If on linux/unix based operating systems run the following
+```bash
+chmod +x scripts/setup-k8s.sh
+./scripts/setup-k8s.sh
+```
+If you run into any issues refer to the documentation folder/setup-help.md for manually deleting.
+
+
+#### Run Docker Compose to start the local PostgreSQL database.
 ```bash
 docker compose up -d
 docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/create_job.sql
 ```
 
-#### Optional: Add mock data to databse
+#### Optional: Add mock data to database
 ```bash
 docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/seed_job.sql
 ```
 
-#### 4) Open multiple terminals (preferably command prompt)
-Inside of terminal 1
-```bash 
+### The next steps require at least two open terminals.
+
+**Terminal 1 — Frontend**
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Inside of terminal 2
+**Terminal 2 — Backend (Windows Command Prompt / cmd)**
+```bat
+cd backend
+gradlew bootRun --args="--spring.profiles.active=local"
+```
+
+**Terminal 2 — Backend (PowerShell or Linux/macOS shell)**
 ```bash
 cd backend
-gradlew bootRun --args='--spring.profiles.active=local'
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-(If using another terminal like powershell use)
-```bash
-./gradlew bootRun --args='--spring.profiles.active=local' OR
-```
-
-#### 5) Open the local development site
+#### Open the local development site
 
 Frontend: http://localhost:5173  
 Backend API: http://localhost:8080
 
 If the frontend URL is different, check the Vite terminal output.
 
-#### 6) Upload files from mockSubmission folder
-submission1 fails\
-submission2 passes test cases\
-submission 3 & 4 should both fail (empty function and empty case scenarios)
-
-### 
+#### Upload files from mockSubmission folder
+Feel free to test the submission files from each respective function to other ones like brokenfib into twosum etc

@@ -1,4 +1,4 @@
-const API_BASE = "https://elastic-autograder-backend.onrender.com/api";
+const API_BASE = "https://ea.electrolyte.dev/api";
 
 export async function updateDB(jobId, jobResults) {
   const response = await fetch(`${API_BASE}/jobs/${jobId}/callback`, {
