@@ -44,32 +44,29 @@ export default function JobsBoard() {
 
   useEffect(() => {
     load(true);
-
     refreshInterval.current = setInterval(() => load(false), REFRESH_INTERVAL)
     return () => clearInterval(refreshInterval.current)
   }, [location]);
 
   return (
-    <div className="jobs-page">
+    <div className="jobs-page" style={{ overflow: "hidden" }}>
       <div className="jobs-board-shell">
         <div className="top-bar">
           <h1 className="page-title">{headerName}</h1>
           {location.pathname !== '/multi-submission' && (
-            <Link to="/submit" className="button nav-button">
-              New Job
-            </Link>
-          )}
+              <Link to="/submit" classNam="button nav-button">
+                 New Job
+              </Link>
+              )}
           {location.pathname === '/multi-submission' && (
-            <Link to="/" className="button nav-button">
-              Back to Jobs
-            </Link>
-          )}
+              <Link>
+                  Back to Jobs
+              </Link>
+              )}
         </div>
-
         {loading && <p>Loading jobs...</p>}
         {error && <p className="status-failed">{error}</p>}
         {!loading && !error && jobs.length === 0 && <p className="muted">No jobs found.</p>}
-
         {!loading && !error && jobs.length > 0 && (
           <div className="card jobs-board-card">
             <JobsTable jobs={jobs} gridRef={gridRef}/>

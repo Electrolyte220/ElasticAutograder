@@ -3,7 +3,7 @@ setlocal
 
 set CLUSTER_NAME=elastic-autograder
 set SCRIPT_DIR=%~dp0
-set REPO_ROOT=%SCRIPT_DIR%..\..
+set REPO_ROOT=%SCRIPT_DIR%..
 set KIND_CONFIG=%REPO_ROOT%\k8s\kind-config.yaml
 set IMAGE_BUILD_ROOT=%REPO_ROOT%\backend\grading\image-build
 
@@ -11,7 +11,7 @@ echo Checking for kind cluster "%CLUSTER_NAME%"...
 kind get clusters | findstr /x /c:"%CLUSTER_NAME%" >nul
 if errorlevel 1 (
     echo Cluster not found. Creating kind cluster from config...
-    kind create cluster --config "%KIND_CONFIG%"
+    kind create cluster --name %CLUSTER_NAME% --config "%KIND_CONFIG%"
     if errorlevel 1 (
         echo Failed to create cluster from %KIND_CONFIG%
         exit /b 1

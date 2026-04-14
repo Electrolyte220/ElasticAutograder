@@ -63,20 +63,20 @@ export default function SubmitJobPage() {
 
       let minId = Object.keys(message)[0];
       let maxId = Object.keys(message)[Object.keys(message).length - 1];
-      if (minId === maxId) navigate("/");
+      if(minId == maxId) navigate("/");
       else {
-        navigate(`/multi-submission?from=${minId}&to=${maxId}`)
-      }
+          navigate(`/multi-submission?from=${minId}&to=${maxId}`)
+          }
       console.log("length:" + Object.keys(message).length);
-      for (let i = 0; i < Object.keys(message).length; i++) {
-        let id = Object.keys(message)[i];
-        const fileName = await fetchFileNameFromId(id);
-        const jobResponse = await runJob(id, fileName);
-        const jobResults = await jobResponse.json();
+            for (let i = 0; i < Object.keys(message).length; i++) {
+              let id = Object.keys(message)[i];
+              const fileName = await fetchFileNameFromId(id);
+              const jobResponse = await runJob(id, fileName);
+              const jobResults = await jobResponse.json();
 
-        await updateDB(id, jobResults);
-        await removeFile(fileName);
-      }
+              await updateDB(id, jobResults);
+              await removeFile(fileName);
+        }
     } catch (err) {
       setStatus(err.message);
     }
@@ -87,11 +87,10 @@ export default function SubmitJobPage() {
       <div className="jobs-board-shell">
         <div className="top-bar">
           <h1 className="page-title">Submit Job</h1>
-          <Link to="/" className="button nav-button">
+          <Link to="/jobs" className="button nav-button">
             Back to Jobs
           </Link>
         </div>
-
         <div className="card">
           <div className="form-group">
             <label className="label">Select Grader</label>
@@ -117,7 +116,6 @@ export default function SubmitJobPage() {
               onChange={handleFileChange}
             />
           </div>
-
           <button className="button" onClick={handleSubmit}>
             Submit Job
           </button>
