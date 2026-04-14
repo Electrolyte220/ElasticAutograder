@@ -81,9 +81,10 @@ public class JobController {
             try(ZipInputStream stream = new ZipInputStream(file.getInputStream())) {
                 ZipEntry entry;
                 while((entry = stream.getNextEntry()) != null) {
-                    File zipEntry = new File(UPLOAD_ROOT + "/" + entry.getName());
-                    if(zipEntry.isDirectory()) {
-                        zipEntry.mkdirs();
+                    String fileName = entry.getName().substring(entry.getName().lastIndexOf("/") + 1);
+                    File zipEntry = new File(UPLOAD_ROOT + "/" + fileName);
+                    if(entry.isDirectory()) {
+                        continue;
                     } else {
                         Files.copy(stream, zipEntry.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     }

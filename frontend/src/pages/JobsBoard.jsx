@@ -54,12 +54,12 @@ export default function JobsBoard() {
         <div className="top-bar">
           <h1 className="page-title">{headerName}</h1>
           {location.pathname !== '/multi-submission' && (
-              <Link to="/submit" classNam="button nav-button">
+              <Link to="/submit" className="button nav-button">
                  New Job
               </Link>
               )}
           {location.pathname === '/multi-submission' && (
-              <Link>
+              <Link to="/jobs" className="button nav-button">
                   Back to Jobs
               </Link>
               )}
