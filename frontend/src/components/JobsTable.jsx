@@ -36,7 +36,7 @@ export default function JobsTable({ jobs, gridRef }) {
             ref={gridRef}
             rowData={jobs}
             columnDefs={colDefs}
-            defaultColDef={{filter:true, flex:1}}
+            defaultColDef={{filter:true, flex:1, floatingFilter:true}}
             gridOptions={{
               theme: theme,
               pagination: true,
