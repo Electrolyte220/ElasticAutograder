@@ -24,10 +24,6 @@ export default function SubmitJobPage() {
 
         const graderOptions = await response.json();
         setGraders(graderOptions);
-
-        if (graderOptions.length > 0) {
-          setSelectedGrader(graderOptions[0].key);
-        }
       } catch (err) {
         setStatus(err.message);
       }
