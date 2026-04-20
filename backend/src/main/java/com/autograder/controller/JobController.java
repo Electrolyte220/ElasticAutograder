@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.autograder.model.FailureReason;
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
 import com.autograder.dto.GraderOptionResponse;
@@ -31,6 +32,7 @@ import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GraderRegistry;
 import com.autograder.service.GradingOrchestrator;
+import com.autograder.service.GradingFailureException;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -144,6 +146,8 @@ public class JobController {
             job.setStatus(JobStatus.RUNNING);
             job.setStartedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
+            job.setFailureReason(FailureReason.NONE);
+            job.setFailureMessage(null);
             jobRepository.saveAndFlush(job);
 
             JsonNode result = gradingOrchestrator.runJobInKubernetes(id, cleanedFileName, job.getGraderType());
@@ -151,13 +155,16 @@ public class JobController {
             applyJobResults(job, result);
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
+            job.setFailureReason(FailureReason.NONE);
+            job.setFailureMessage(null);
             jobRepository.saveAndFlush(job);
 
             return ResponseEntity.ok(result);
 
         } catch (IllegalArgumentException e) {
             job.setStatus(JobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
+            job.setFailureReason(FailureReason.CONFIG_ERROR);
+            job.setFailureMessage(e.getMessage());
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
             jobRepository.saveAndFlush(job);
@@ -165,9 +172,21 @@ public class JobController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new StringNode(e.getMessage()));
 
+        } catch (GradingFailureException e) {
+            job.setStatus(JobStatus.FAILED);
+            job.setFailureReason(e.getFailureReason());
+            job.setFailureMessage(e.getMessage());
+            job.setFinishedAt(OffsetDateTime.now());
+            job.setUpdatedAt(OffsetDateTime.now());
+            jobRepository.saveAndFlush(job);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new StringNode(e.getMessage()));
+
         } catch (Exception e) {
             job.setStatus(JobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
+            job.setFailureReason(FailureReason.UNKNOWN);
+            job.setFailureMessage(e.getMessage());
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
             jobRepository.saveAndFlush(job);
@@ -257,36 +276,43 @@ public class JobController {
     }
 
     private void applyJobResults(Job job, JsonNode jobResults) throws IOException {
-        if (jobResults == null || jobResults.get("status") == null) {
-            throw new IllegalArgumentException("Grader result is missing required field: status");
-        }
-
-        job.setStatus(parseJobStatus(jobResults.get("status").asText()));
-
-        if (jobResults.has("tests_passed")) {
-            job.setTestsPassed(jobResults.get("tests_passed").asInt());
-        }
-
-        if (jobResults.has("tests_total")) {
-            job.setTestsTotal(jobResults.get("tests_total").asInt());
-        }
-
-        if (jobResults.has("score") && !jobResults.get("score").isNull()) {
-            job.setScore(jobResults.get("score").decimalValue());
-        } else {
-            job.setScore(BigDecimal.ZERO);
-        }
-
-        if (jobResults.has("error_message") && !jobResults.get("error_message").isNull()) {
-            job.setErrorMessage(jobResults.get("error_message").asText());
-        } else {
-            job.setErrorMessage(null);
-        }
-
-        if (jobResults.has("results")) {
-            job.setResultJson(objectMapper.writeValueAsString(jobResults.get("results")));
-        }
+    if (jobResults == null || jobResults.get("status") == null) {
+        throw new IllegalArgumentException("Grader result is missing required field: status");
     }
+
+    JobStatus parsedStatus = parseJobStatus(jobResults.get("status").asText());
+    job.setStatus(parsedStatus);
+
+    if (jobResults.has("tests_passed")) {
+        job.setTestsPassed(jobResults.get("tests_passed").asInt());
+    }
+
+    if (jobResults.has("tests_total")) {
+        job.setTestsTotal(jobResults.get("tests_total").asInt());
+    }
+
+    if (jobResults.has("score") && !jobResults.get("score").isNull()) {
+        job.setScore(jobResults.get("score").decimalValue());
+    } else {
+        job.setScore(BigDecimal.ZERO);
+    }
+
+    if (jobResults.has("error_message") && !jobResults.get("error_message").isNull()) {
+        job.setFailureMessage(jobResults.get("error_message").asText());
+
+        if (parsedStatus == JobStatus.FAILED
+                && (job.getFailureReason() == null || job.getFailureReason() == FailureReason.NONE)) {
+            job.setFailureReason(FailureReason.UNKNOWN);
+        }
+    } else if (parsedStatus == JobStatus.SUCCEEDED) {
+        job.setFailureReason(FailureReason.NONE);
+        job.setFailureMessage(null);
+    }
+
+    if (jobResults.has("results")) {
+        job.setResultJson(objectMapper.writeValueAsString(jobResults.get("results")));
+    }
+}
 
     private JobStatus parseJobStatus(String rawStatus) {
         if (rawStatus == null || rawStatus.isBlank()) {
