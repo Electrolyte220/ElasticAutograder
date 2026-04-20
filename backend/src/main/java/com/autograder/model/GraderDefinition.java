@@ -61,16 +61,32 @@ public class GraderDefinition {
         return key;
     }
 
+    public void setKey(String key){
+        this.key = key;
+    }
+
     public String getLabel() {
         return label;
+    }
+
+    public void setLabel(String label){
+        this.label = label;
     }
 
     public String getImageName() {
         return imageName;
     }
 
+    public void setImageName(String imageName){
+        this.imageName = imageName;
+    }
+
     public String getManifestPath() {
         return manifestPath;
+    }
+
+    public void setManifestPath(String manifestPath){
+        this.manifestPath = manifestPath;
     }
 
     public String getDescription() {

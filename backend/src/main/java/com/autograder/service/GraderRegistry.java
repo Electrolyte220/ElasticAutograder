@@ -4,10 +4,13 @@ import com.autograder.config.GraderConfigLoader;
 import com.autograder.model.GraderDefinition;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+
 
 @Service
 public class GraderRegistry {
@@ -22,6 +25,16 @@ public class GraderRegistry {
                         GraderDefinition::getKey,
                         Function.identity()
                 ));
+    }
+
+    // manual constructor for graderRegistry object based off a set list 
+    public GraderRegistry(List<GraderDefinition> graderDefinitions){
+        this.graders = graderDefinitions.stream()
+                .collect(Collectors.toMap(
+                        GraderDefinition::getKey,
+                        Function.identity()
+                ));
+
     }
 
     public GraderDefinition getRequired(String key) {

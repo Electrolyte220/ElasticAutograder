@@ -12,9 +12,32 @@ import com.autograder.model.GraderDefinition;
 
 class GraderRegistryTest {
 
+    private GraderRegistry createRegistry() {
+        List<GraderDefinition> graderDefinitions = List.of(
+                createGrader("fib", "Fibonacci", "ea-grader-fibbonaci:v1"),
+                createGrader("twosum", "Two Sum", "ea-grader-twosum:v1")
+        );
+
+        return new GraderRegistry(graderDefinitions);
+    }
+
+    private GraderDefinition createGrader(String key, String label, String imageName) {
+        GraderDefinition grader = new GraderDefinition();
+        grader.setKey(key);
+        grader.setLabel(label);
+        grader.setImageName(imageName);
+        grader.setManifestPath("/app/grader/manifest.json");
+        grader.setTimeoutSeconds(10);
+        grader.setCpuRequestMilli(100);
+        grader.setCpuLimitMilli(500);
+        grader.setMemoryRequestMb(128);
+        grader.setMemoryLimitMb(512);
+        return grader;
+    }
+
     @Test
     void getRequired_validKey_returnsCorrectFibGrader() {
-        GraderRegistry registry = new GraderRegistry();
+        GraderRegistry registry = createRegistry();
 
         GraderDefinition grader = registry.getRequired("fib");
 
@@ -27,7 +50,7 @@ class GraderRegistryTest {
 
     @Test
     void getRequired_validKey_returnsCorrectTwoSumGrader() {
-        GraderRegistry registry = new GraderRegistry();
+        GraderRegistry registry = createRegistry();
 
         GraderDefinition grader = registry.getRequired("twosum");
 
@@ -40,7 +63,7 @@ class GraderRegistryTest {
 
     @Test
     void getRequired_unknownKey_throwsIllegalArgumentException() {
-        GraderRegistry registry = new GraderRegistry();
+        GraderRegistry registry = createRegistry();
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -52,18 +75,18 @@ class GraderRegistryTest {
 
     @Test
     void getAll_returnsAllRegisteredGraders() {
-        GraderRegistry registry = new GraderRegistry();
+        GraderRegistry registry = createRegistry();
 
         List<GraderDefinition> graders = registry.getAll();
 
         assertEquals(2, graders.size());
 
-        boolean hasFib = graders.stream().anyMatch(g -> 
+        boolean hasFib = graders.stream().anyMatch(g ->
                 g.getKey().equals("fib") &&
                 g.getLabel().equals("Fibonacci")
         );
 
-        boolean hasTwoSum = graders.stream().anyMatch(g -> 
+        boolean hasTwoSum = graders.stream().anyMatch(g ->
                 g.getKey().equals("twosum") &&
                 g.getLabel().equals("Two Sum")
         );
@@ -74,17 +97,12 @@ class GraderRegistryTest {
 
     @Test
     void getAll_returnsUnmodifiableList() {
-        GraderRegistry registry = new GraderRegistry();
+        GraderRegistry registry = createRegistry();
 
         List<GraderDefinition> graders = registry.getAll();
 
         assertThrows(UnsupportedOperationException.class, () ->
-                graders.add(new GraderDefinition(
-                        "new",
-                        "New Grader",
-                        "ea-grader-new:v1",
-                        "/app/grader/manifest.json"
-                ))
+                graders.add(createGrader("new", "New Grader", "ea-grader-new:v1"))
         );
     }
 }
