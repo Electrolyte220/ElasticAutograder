@@ -42,7 +42,7 @@ export default function JobsTable({ jobs, gridRef, onViewDetails }) {
           ref={gridRef}
           rowData={jobs}
           columnDefs={colDefs}
-          defaultColDef={{ filter: true, flex: 1, floatingFilter: true }}
+          defaultColDef={{ filter: true, flex: 1, floatingFilter: true, suppressMovable: true }}
           gridOptions={{
             theme: theme,
             pagination: true,
