@@ -183,7 +183,10 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 }
 
                 if (failed != null && failed > 0) {
-                    throw new IllegalStateException("Job failed: " + jobName);
+                    FailureReason reason = detectFailureReasonFromPod(jobId);
+                    String message = detectFailureMessageFromPod(jobId, "Job failed: " + jobName);
+
+                    throw new GradingFailureException(reason, message);
                 }
             }
 
@@ -226,6 +229,76 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         }
 
         return logs;
+    }
+
+    private FailureReason detectFailureReasonFromPod(Long jobId) {
+        String jobIdLabel = String.valueOf(jobId);
+
+        PodList podList = kubernetesClient.pods()
+                .inNamespace(NAMESPACE)
+                .withLabel("app", "elastic-autograder")
+                .withLabel("job-id", jobIdLabel)
+                .list();
+
+        if (podList == null || podList.getItems() == null || podList.getItems().isEmpty()) {
+            return FailureReason.KUBERNETES_ERROR;
+        }
+
+        for (Pod pod : podList.getItems()) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) {
+                continue;
+            }
+
+            // avoid using var normally to avoid too much abstraction, but for future devs this is Fabric8 type
+            for (var containerStatus : pod.getStatus().getContainerStatuses()) {
+                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
+                    continue;
+                }
+
+                String reason = containerStatus.getState().getTerminated().getReason();
+                if (reason != null && reason.equalsIgnoreCase("OOMKilled")) {
+                    return FailureReason.RESOURCE_LIMIT;
+                }
+            }
+        }
+
+        return FailureReason.KUBERNETES_ERROR;
+    }
+
+    private String detectFailureMessageFromPod(Long jobId, String defaultMessage) {
+        String jobIdLabel = String.valueOf(jobId);
+
+        PodList podList = kubernetesClient.pods()
+                .inNamespace(NAMESPACE)
+                .withLabel("app", "elastic-autograder")
+                .withLabel("job-id", jobIdLabel)
+                .list();
+
+        if (podList == null || podList.getItems() == null || podList.getItems().isEmpty()) {
+            return defaultMessage;
+        }
+
+        for (Pod pod : podList.getItems()) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) {
+                continue;
+            }
+
+            for (var containerStatus : pod.getStatus().getContainerStatuses()) {
+                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
+                    continue;
+                }
+
+                var terminated = containerStatus.getState().getTerminated();
+                String reason = terminated.getReason();
+                Integer exitCode = terminated.getExitCode();
+
+                if (reason != null) {
+                    return "Job failed: " + reason + (exitCode != null ? " (exit code " + exitCode + ")" : "");
+                }
+            }
+        }
+
+        return defaultMessage;
     }
 
     // Additional helper methods for cleanup, etc. can be added below

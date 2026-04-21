@@ -2,6 +2,8 @@ package com.autograder.service;
 
 import com.autograder.config.GraderConfigLoader;
 import com.autograder.model.GraderDefinition;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -17,6 +19,7 @@ public class GraderRegistry {
 
     private final Map<String, GraderDefinition> graders;
 
+    @Autowired
     public GraderRegistry(GraderConfigLoader graderConfigLoader) {
         List<GraderDefinition> loadedGraders = graderConfigLoader.loadGraders();
 

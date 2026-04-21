@@ -1,16 +1,15 @@
 package com.autograder.config;
 
-import com.autograder.model.GraderDefinition;
-import com.autograder.service.GraderRegistry;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+
+import org.springframework.stereotype.Component;
+
+import com.autograder.model.GraderDefinition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class GraderConfigLoader {
@@ -20,11 +19,11 @@ public class GraderConfigLoader {
     private static final Path DEFAULT_CONFIG_PATH = Path.of("..", "config", "graders.json");
 
     // platform defaults for graders unless overridden in config
-    private static final int DEFAULT_TIMEOUT_SECONDS = 10;
-    private static final int DEFAULT_CPU_REQUEST_MILLI = 100;
-    private static final int DEFAULT_CPU_LIMIT_MILLI = 500;
-    private static final int DEFAULT_MEMORY_REQUEST_MB = 128;
-    private static final int DEFAULT_MEMORY_LIMIT_MB = 512;
+    private static final int DEFAULT_TIMEOUT_SECONDS = 10; // 10 originally
+    private static final int DEFAULT_CPU_REQUEST_MILLI = 100; // 100 originally
+    private static final int DEFAULT_CPU_LIMIT_MILLI = 500; // 500 originally
+    private static final int DEFAULT_MEMORY_REQUEST_MB = 32; // 128 originally
+    private static final int DEFAULT_MEMORY_LIMIT_MB = 64; // 512 originally
 
     private final ObjectMapper objectMapper;
 
@@ -37,6 +36,7 @@ public class GraderConfigLoader {
     }
 
     public List<GraderDefinition> loadGraders(Path configPath) {
+        // if no files exist in the path return exception
         if (!Files.exists(configPath)) {
             throw new IllegalStateException("Grader config file not found: " + configPath.toAbsolutePath());
         }
@@ -47,6 +47,7 @@ public class GraderConfigLoader {
             if (graderConfig == null || graderConfig.getGraders() == null) {
                 throw new IllegalStateException("Invalid grader config: missing 'graders' list.");
             }
+
             applyDefaults(graderConfig.getGraders());
             validateGraders(graderConfig.getGraders());
 
