@@ -55,7 +55,6 @@ import tools.jackson.databind.node.StringNode;
  * 4. Store results/failure details in the database
  * 5. Return job history and downloadable results to the frontend
  */
-@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequestMapping("/api")
 public class JobController {
@@ -110,6 +109,7 @@ public class JobController {
         @RequestParam String graderType) {
         String cleanedGraderType = graderType.trim();
         graderRegistry.getRequired(cleanedGraderType);
+
         if(file.getContentType().equals("application/zip")) {
             try(ZipInputStream stream = new ZipInputStream(file.getInputStream())) {
                 ZipEntry entry;
@@ -151,8 +151,8 @@ public class JobController {
 
             for(Path path : pathList) {
                 File uploadedFile = new File(path.toUri());
-                String fileName = uploadedFile.getName();
-                Pair<HttpStatus, Pair<Long, String>> response = createJob(uploadedFile, graderType, fileName);
+                String sanitizedFileName = sanitizeFileName(uploadedFile.getName());
+                Pair<HttpStatus, Pair<Long, String>> response = createJob(uploadedFile, cleanedGraderType, sanitizedFileName);
                 if(response.getFirst().equals(HttpStatus.OK)) {
                     results.put(response.getSecond().getFirst(), response.getSecond().getSecond());
                 } else {
@@ -181,18 +181,13 @@ public class JobController {
     /**
      * Creates a new {@link Job} object for input parameters.
      * @param file File to create a job for.
-     * @param graderType Grader type to run job against.
-     * @param originalFileName Actual file name to run the job on.
+     * @param cleanedGraderType Grader type to run job against.
+     * @param sanitizedFileName Actual file name to run the job on.
      * @return pair of {@link HttpStatus} & pair of job id + status message
      */
-    private @NonNull Pair<HttpStatus, Pair<Long, String>> createJob(File file, String graderType, String originalFileName) {
-        String fileName = sanitizeFileName(originalFileName);
-        String cleanedGraderType = graderType.trim();
-
-        graderRegistry.getRequired(cleanedGraderType);
-
+    private @NonNull Pair<HttpStatus, Pair<Long, String>> createJob(File file, String cleanedGraderType, String sanitizedFileName) {
         try {
-            Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
+            Job job = new Job(sanitizedFileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
 
             return Pair.of(HttpStatus.OK, Pair.of(job.getId(), "Successfully uploaded file."));

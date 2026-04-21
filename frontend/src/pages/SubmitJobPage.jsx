@@ -59,19 +59,22 @@ export default function SubmitJobPage() {
 
       let minId = Object.keys(message)[0];
       let maxId = Object.keys(message)[Object.keys(message).length - 1];
-      if(minId == maxId) navigate("/");
+      if(minId == maxId) navigate("/jobs");
       else {
           navigate(`/multi-submission?from=${minId}&to=${maxId}`)
           }
-      console.log("length:" + Object.keys(message).length);
-            for (let i = 0; i < Object.keys(message).length; i++) {
-              let id = Object.keys(message)[i];
-              const fileName = await fetchFileNameFromId(id);
-              const jobResponse = await runJob(id, fileName);
-              const jobResults = await jobResponse.json();
+      for (let i = 0; i < Object.keys(message).length; i++) {
+        try {
+        let id = Object.keys(message)[i];
+        const fileName = await fetchFileNameFromId(id);
+        const jobResponse = await runJob(id, fileName);
+        const jobResults = await jobResponse.json();
 
-              await updateDB(id, jobResults);
-              navigate("/jobs");
+        await updateDB(id, jobResults);
+        } catch(err) {
+          setStatus(err.message)
+        }
+        //todo: check navigate("/jobs");
         }
     } catch (err) {
       setStatus(err.message);
