@@ -14,6 +14,9 @@ export default function SubmitJobPage() {
   const [selectedGrader, setSelectedGrader] = useState("");
   const navigate = useNavigate();
 
+    const selectedGraderInfo = graders.find(
+    (grader) => grader.key === selectedGrader
+  );
   useEffect(() => {
     const fetchGraders = async () => {
       try {
@@ -93,8 +96,17 @@ export default function SubmitJobPage() {
             </select>
           </div>
 
+          {selectedGraderInfo?.description && (
+            <div className="form-group">
+              <label className="label">Grader Description</label>
+              <div className="grader-description">
+                {selectedGraderInfo.description}
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
-            <label className="label">Upload Submission</label>
+            <label className="label">Upload Submission (Python only)</label>
             <input
               className="input"
               type="file"

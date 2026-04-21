@@ -10,10 +10,22 @@ package com.autograder.dto;
 public class GraderOptionResponse {
     private final String key;
     private final String label;
+    private final String description;
 
+    // Constructor for reading a grader with only a key and label available
+    // Automatically sets the description to no details provided
     public GraderOptionResponse(String key, String label) {
         this.key = key;
         this.label = label;
+        this.description = "No details provided!";
+    }
+
+    // Constructor for reading a grader with a key, label, and description 
+    
+    public GraderOptionResponse(String key, String label, String description){
+        this.key = key;
+        this.label = label;
+        this.description = description;
     }
 
     // basic setter and getters below
@@ -23,5 +35,9 @@ public class GraderOptionResponse {
 
     public String getLabel() {
         return label;
+    }
+
+    public String getDescription(){
+        return description;
     }
 }

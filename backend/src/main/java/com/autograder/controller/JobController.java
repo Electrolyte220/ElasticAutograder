@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.autograder.model.FailureReason;
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
+import com.autograder.model.GraderDefinition;
 import com.autograder.dto.GraderOptionResponse;
 import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
@@ -110,7 +111,7 @@ public class JobController {
             String cleanedGraderType = graderType.trim();
 
             // double check grader exists before continuing
-            graderRegistry.getRequired(cleanedGraderType);
+            GraderDefinition grader = graderRegistry.getRequired(cleanedGraderType);
 
             if (!Files.exists(UPLOAD_ROOT)) {
                 Files.createDirectories(UPLOAD_ROOT);
@@ -131,6 +132,10 @@ public class JobController {
 
             // Create a new Job row for execution and for the database
             Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
+            
+            job.setSubmissionPath(filePath.toString());
+            job.setGraderImage(grader.getImageName());
+
             jobRepository.save(job);
 
             return ResponseEntity.ok(Map.of(
@@ -196,6 +201,7 @@ public class JobController {
             job.setUpdatedAt(OffsetDateTime.now());
             job.setFailureReason(FailureReason.NONE);
             job.setFailureMessage(null);
+            job.setK8sJobName("grading-job-"+id);
             jobRepository.saveAndFlush(job);
 
             return ResponseEntity.ok(result);
@@ -239,6 +245,7 @@ public class JobController {
             if (cleanedFileName != null) {
                 try {
                     Path filePath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
+                    job.setSubmissionPath(cleanedFileName);
                     Files.deleteIfExists(filePath);
                 } catch (IOException e) {
                     System.err.println("Failed to delete staged upload file '" + cleanedFileName + "': " + e.getMessage());
@@ -462,7 +469,8 @@ public class JobController {
         List<GraderOptionResponse> graders = graderRegistry.getAll().stream()
                 .map(grader -> new GraderOptionResponse(
                         grader.getKey(),
-                        grader.getLabel()
+                        grader.getLabel(),
+                        grader.getDescription()
                 ))
                 .toList();
 

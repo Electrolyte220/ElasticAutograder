@@ -4,19 +4,23 @@
       "key": "fib",
       "label": "Fibonacci",
       "imageName": "ea-grader-fibbonaci:v1",
-      "manifestPath": "/app/grader/manifest.json"
+      "manifestPath": "/app/grader/manifest.json",
+      "description": 
+      "Fibonnaci numbers, denoted as F(n) form a sequence, called the fibonnaci sequence. Where each number is the sum of the last two, assume you start from 0 and 1"
     },
     {
       "key": "twosum",
       "label": "Two Sum",
       "imageName": "ea-grader-twosum:v1",
-      "manifestPath": "/app/grader/manifest.json"
+      "manifestPath": "/app/grader/manifest.json",
+      "description": "Return the indices of the two numbers that add up to the target value."
     },
     {
       "key": "count",
       "label": "Count N",
       "imageName": "ea-grader-count:v1",
-      "manifestPath": "/app/grader/manifest.json"
+      "manifestPath": "/app/grader/manifest.json",
+      "description": "Count from 1 to N and produce the expected output format for the grader."
     }
   ]
 }

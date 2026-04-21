@@ -44,12 +44,37 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     private final KubernetesClient kubernetesClient;
     private final GraderRegistry graderRegistry;
 
-    
+    /**
+     * Constructor for Fabric8GradingOrchestrator with: 
+     * the shared k8s client 
+     * and the grader registry loaded from config.
+     *
+     * @param kubernetesClient Fabric8 client used to create/read/delete cluster resources
+     * @param graderRegistry registry used to resolve grader metadata from the selected grader key
+     */
     public Fabric8GradingOrchestrator(KubernetesClient kubernetesClient, GraderRegistry graderRegistry) {
         this.kubernetesClient = kubernetesClient;
         this.graderRegistry = graderRegistry;
     }
 
+    /**
+     * Runs a job in Kubernetes for a specific submission indexed by ID
+     *
+     * Flow:
+     * 1. Validate grader type
+     * 2. Look up grader config from the registry
+     * 3. Create a ConfigMap containing the uploaded submission
+     * 4. Create the Kubernetes Job
+     * 5. Wait for the job to finish
+     * 6. Read the job logs and parse them as grader result JSON
+     * 7. Clean up the temporary ConfigMap even if grading fails
+     *
+     * @param jobId id of the Job row associated with this grading run
+     * @param fileName staged submission file name
+     * @param graderType selected grader key
+     * @return parsed grader JSON result
+     * @throws Exception ONLY if job creation, execution, log parsing, or cleanup fails
+     */
     @Override
     public JsonNode runJobInKubernetes(Long jobId, String fileName, String graderType) throws Exception {
         if (graderType == null || graderType.isBlank()) {
@@ -68,8 +93,10 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
 
             return objectMapper.readTree(logs);
         } 
-        // add catch error handling pls - we can be more specific with exception types and error messages as needed
         catch (Exception err) {
+            // Wraps lower level runtime errors into a structured grading failure.
+            // This helps us store the grading error + grading error message to see 
+            // later!
             FailureReason failureReason = classifyFailure(err);
             throw new GradingFailureException(
                 failureReason,
@@ -78,6 +105,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
             );
         }
         finally {
+            // Cleanup logic should always try to delete submitted config map.
             try{
                 deleteSubmissionConfigMap(configMapName);
             } catch (Exception e) {
@@ -87,6 +115,17 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         }
     }
 
+    /**
+     * Creates a ConfigMap based off the uploaded submission file contents.
+     *
+     * This allows the grader container to mount the submission file under /work
+     * without needing direct access to the local backend file system.
+     *
+     * @param jobId id of the grading job
+     * @param fileName staged submission file name
+     * @return created or replaced ConfigMap resource
+     * @throws Exception if the submission file cannot be found or read
+     */
     public ConfigMap createSubmissionConfigMap(Long jobId, String fileName) throws Exception {
         String cleanedFileName = sanitizeFileName(fileName);
         Path submissionPath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
@@ -113,6 +152,20 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .createOrReplace();
     }
 
+    /**
+     * Creates the Kubernetes Job that runs the grader container.
+     *
+     * This applies:
+     * - the selected grader image
+     * - manifest path
+     * - timeout via activeDeadlineSeconds
+     * - CPU and memory requests/limits
+     * - the mounted ConfigMap containing the submission file
+     *
+     * @param jobId id of the grading job
+     * @param grader resolved grader definition from config
+     * @return created or replaced Kubernetes Job resource
+     */
     public Job createGradingJob(Long jobId, GraderDefinition grader) {
         String jobName = "grading-job-" + jobId;
         String configMapName = "submission-job-" + jobId;
@@ -173,6 +226,17 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .createOrReplace();
     }
 
+    /**
+     * Polls Kubernetes until the grading job succeeds, fails, or times out.
+     *
+     * On failure, this method tries to inspect the pod state to classify whether
+     * the failure was caused by a resource limit or a general Kubernetes error.
+     *
+     * @param jobId id of the grading job
+     * @param timeoutSeconds maximum time to wait before treating the job as timed out
+     * @return completed Job resource when successful
+     * @throws Exception if the job fails, disappears, or exceeds the timeout
+     */
     public Job waitForJobCompletion(Long jobId, long timeoutSeconds) throws Exception {
         String jobName = "grading-job-" + jobId;
         long deadline = System.currentTimeMillis() + (timeoutSeconds * 1000);
@@ -207,11 +271,24 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
 
             // move around sleep value depending on your preference
             // alternatively punish user/developer using this by changing to 20000000000
+            // This is mostly the amount of time you want to wait for Job Completion
+            // in ms 
             Thread.sleep(1000);
         }
 
         throw new IllegalStateException("Timed out waiting for job completion: " + jobName);
     }
+
+    /**
+     * Reads logs from the grader pod associated with the given job.
+     *
+     * The grader runtime is expected to print result JSON to stdout, which is then
+     * parsed back into a JsonNode by runJobInKubernetes().
+     *
+     * @param jobId id of the grading job
+     * @return raw pod log output as a string
+     * @throws Exception if no pod exists, metadata is missing, or logs are empty
+     */
 
     public String getJobLogs(Long jobId) throws Exception {
         String jobIdLabel = String.valueOf(jobId);
@@ -246,6 +323,16 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         return logs;
     }
 
+    /**
+     * Attempts to classify a failed job by inspecting the terminated container state
+     * of the associated pod.
+     *
+     * Right now this mainly detects OOMKilled so memory-limit failures can be stored
+     * as RESOURCE_LIMIT instead of a generic Kubernetes failure.
+     *
+     * @param jobId id of the grading job
+     * @return detected failure reason or KUBERNETES_ERROR as a fallback
+     */
     private FailureReason detectFailureReasonFromPod(Long jobId) {
         String jobIdLabel = String.valueOf(jobId);
 
@@ -280,6 +367,15 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         return FailureReason.KUBERNETES_ERROR;
     }
 
+    /**
+     * Sanitizes the submission file name before using it in local file system operations.
+     *
+     * Prevents blank names and basic path traversal input.
+     *
+     * @param rawFileName raw request/body file name
+     * @return cleaned file name safe to resolve under the uploads folder
+     * @throws IllegalArgumentException if the file name is missing or invalid
+     */
     private String detectFailureMessageFromPod(Long jobId, String defaultMessage) {
         String jobIdLabel = String.valueOf(jobId);
 
@@ -342,7 +438,6 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     }
 
     // Cleanup method to delete ConfigMap and Job after completion
-    // alternatively we COULD overload this to accept jobId, but eh we'll see if we need it first
     public void deleteSubmissionConfigMap(String configMapName) {
         kubernetesClient.configMaps()
                 .inNamespace(NAMESPACE)
