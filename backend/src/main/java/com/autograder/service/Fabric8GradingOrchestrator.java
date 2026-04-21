@@ -19,17 +19,32 @@ import tools.jackson.databind.ObjectMapper;
 import com.autograder.model.FailureReason;
 import com.autograder.model.GraderDefinition;
 
+/**
+ * Main grading orchestrator implementation backed by the Fabric8 Kubernetes client.
+ *
+ * This service is responsible for:
+ * - creating a ConfigMap from the uploaded submission file
+ * - creating the Kubernetes grading Job
+ * - waiting for the Job to finish
+ * - reading grader logs back as JSON
+ * - classifying failures such as timeout or resource-limit errors
+ * - cleaning up temporary Kubernetes resources after execution
+ */
 @Primary
 @Service
 public class Fabric8GradingOrchestrator implements GradingOrchestrator {
+
+    // Local JSON mapper used to parse grader output returned from pod logs.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Local folder where uploaded submissions are temporarily staged before being put into kubernetes through a configMap
     private static final Path UPLOAD_ROOT = Path.of("grading/uploads");
     private static final String NAMESPACE = "default";
 
     private final KubernetesClient kubernetesClient;
     private final GraderRegistry graderRegistry;
 
+    
     public Fabric8GradingOrchestrator(KubernetesClient kubernetesClient, GraderRegistry graderRegistry) {
         this.kubernetesClient = kubernetesClient;
         this.graderRegistry = graderRegistry;

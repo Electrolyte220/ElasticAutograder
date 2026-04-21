@@ -7,6 +7,16 @@ import org.hibernate.annotations.Type;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
+/**
+ * JPA entity representing one submitted grading job.
+ *
+ * This model stores:
+ * - basic submission metadata such as file name and grader type
+ * - execution lifecycle state such as queued/running/succeeded/failed
+ * - failure details for jobs that do not complete successfully
+ * - grading summary data such as score, test counts, and result JSON
+ * - Kubernetes job information when the submission is executed in-cluster
+ */
 @Entity
 @Table(name = "jobs")
 public class Job {

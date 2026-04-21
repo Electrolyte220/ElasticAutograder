@@ -11,11 +11,14 @@ import org.springframework.stereotype.Component;
 import com.autograder.model.GraderDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Loads definition of each grader from the grader.json config file, 
+ * applies default settings where applicable and validates each grader
+*/
 @Component
 public class GraderConfigLoader {
 
-    // Assumes backend is started from the project root: gradle should be configured to do this, and the README should specify this as well
-
+    // default path to the grader config file from the project directory
     private static final Path DEFAULT_CONFIG_PATH = Path.of("..", "config", "graders.json");
 
     // platform defaults for graders unless overridden in config
@@ -25,16 +28,35 @@ public class GraderConfigLoader {
     private static final int DEFAULT_MEMORY_REQUEST_MB = 32; // 128 originally
     private static final int DEFAULT_MEMORY_LIMIT_MB = 64; // 512 originally
 
+    // Jackson mapper to turn grader.json into java objects we can read
     private final ObjectMapper objectMapper;
 
+    /**
+     * Constructs the config loader with the shared ObjectMapper bean.
+     *
+     * @param objectMapper mapper used to parse JSON config into GraderConfig
+     */
     public GraderConfigLoader(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Loads graders from the default config path.
+     *
+     * @return fully processed grader definitions from graders.json
+     */
     public List<GraderDefinition> loadGraders() {
         return loadGraders(DEFAULT_CONFIG_PATH);
     }
 
+    /**
+     * Loads graders from the provided config path, applies default values,
+     * validates each grader entry, and returns the final list.
+     *
+     * @param configPath path to graders.json
+     * @return list of grader definitions ready for use by the backend
+     * @throws IllegalStateException
+     **/
     public List<GraderDefinition> loadGraders(Path configPath) {
         // if no files exist in the path return exception
         if (!Files.exists(configPath)) {
@@ -42,13 +64,18 @@ public class GraderConfigLoader {
         }
 
         try {
+            // parse the json file and wrap it into the GraderConfig file
             GraderConfig graderConfig = objectMapper.readValue(configPath.toFile(), GraderConfig.class);
 
+            // reject missing/improperly created graders
             if (graderConfig == null || graderConfig.getGraders() == null) {
                 throw new IllegalStateException("Invalid grader config: missing 'graders' list.");
             }
 
+            // applies default values 
             applyDefaults(graderConfig.getGraders());
+
+            // validate grader enteries (error handling n other stuff)
             validateGraders(graderConfig.getGraders());
 
             return graderConfig.getGraders();
@@ -58,12 +85,23 @@ public class GraderConfigLoader {
         }
     }
 
+    /**
+     * Loads graders from the provided config path and applies default values where applicable
+     *
+     * @param graders list of graders loaded from config file
+     **/
     private void applyDefaults(List<GraderDefinition> graders) {
         for (GraderDefinition grader : graders) {
             applyDefaults(grader);
         }
     }
 
+    /**
+     * Applies platform defaults to a grader when optional
+     * timeout/resource settings weren't set
+     *
+     * @param grader grader definition to fill with defaults
+     */
     private void applyDefaults(GraderDefinition grader) {
         if (grader.getTimeoutSeconds() == null) {
             grader.setTimeoutSeconds(DEFAULT_TIMEOUT_SECONDS);
@@ -86,6 +124,13 @@ public class GraderConfigLoader {
         }
     }
 
+    /**
+     * Validates the full list of graders and rejects invalid config early.
+     * Also checks for duplicate grader keys
+     *
+     * @param graders list of grader definitions to validate
+     * @throws IllegalStateException if the list is empty or contains invalid entries
+     */
     private void validateGraders(List<GraderDefinition> graders) {
         if (graders.isEmpty()) {
             throw new IllegalStateException("Grader config is empty. At least one grader must be defined.");
@@ -101,8 +146,13 @@ public class GraderConfigLoader {
         }
     }
 
-    // basic error handling throws exceptions if there's errors 
-    // to add: duplicate keys 
+    /**
+     * Validates a grader
+     * This ensures required metadata exists and that resource settings aren't contradictory or error prone
+     *
+     * @param grader grader definition to validate
+     * @throws IllegalStateException if any required field is missing or invalid
+     */
     private void validateGrader(GraderDefinition grader){      
       if (grader.getKey() == null || grader.getKey().isBlank()) {
             throw new IllegalStateException("Each grader must have a non-empty key.");
