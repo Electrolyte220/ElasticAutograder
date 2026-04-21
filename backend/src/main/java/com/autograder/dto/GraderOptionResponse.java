@@ -1,7 +1,12 @@
 package com.autograder.dto;
 
-// For some context, DTO is Data Transfer Object
-// basically this class tells frontend, hey these are all the current job autograders we have so use em
+/**
+ * DTO used to send grader options from the backend to the frontend.
+ *
+ * Each object represents one selectable grader in the submission form.
+ * Only the fields needed by the UI are exposed here instead of sending
+ * the full internal GraderDefinition object.
+ */
 public class GraderOptionResponse {
     private final String key;
     private final String label;
@@ -11,6 +16,7 @@ public class GraderOptionResponse {
         this.label = label;
     }
 
+    // basic setter and getters below
     public String getKey() {
         return key;
     }

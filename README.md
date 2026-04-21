@@ -187,8 +187,9 @@ scripts\setup-k8s.bat
 
 If on linux/unix based operating systems run the following
 ```bash
-chmod +x scripts/setup-k8s.sh
-./scripts/setup-k8s.sh
+#!/usr/bin/env bash
+set -euo pipefail
+python3 scripts/setup_graders.py
 ```
 If you run into any issues refer to the documentation folder/setup-help.md for manually deleting.
 

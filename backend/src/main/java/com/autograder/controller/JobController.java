@@ -1,6 +1,7 @@
 package com.autograder.controller;
 
 import java.io.File;
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.autograder.model.FailureReason;
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
 import com.autograder.dto.GraderOptionResponse;
@@ -36,17 +38,29 @@ import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GraderRegistry;
 import com.autograder.service.GradingOrchestrator;
+import com.autograder.service.GradingFailureException;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.StringNode;
 
-// this must be changed in prod
-@SuppressWarnings("unused")
+/**
+ * Main REST controller for job submission, execution, result retrieval,
+ * file cleanup, and grader option lookup.
+ *
+ * This controller handles the full basic workflow:
+ * 1. Upload a submission file
+ * 2. Create a Job record
+ * 3. Run the job through the grading orchestrator
+ * 4. Store results/failure details in the database
+ * 5. Return job history and downloadable results to the frontend
+ */
+@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequestMapping("/api")
 public class JobController {
 
+    // this is where submissions are stored
     private static final Path UPLOAD_ROOT = Path.of("grading/uploads");
 
     private final JobRepository jobRepository;
@@ -55,6 +69,14 @@ public class JobController {
     private final Fabric8GradingOrchestrator fabric8GradingOrchestrator;
     private final GraderRegistry graderRegistry;
 
+    /**
+     * Constructs the controller with the required repository and service dependencies.
+     *
+     * @param jobRepository database access for Job records
+     * @param gradingOrchestrator main grading runner abstraction
+     * @param fabric8GradingOrchestrator Fabric8-based Kubernetes orchestrator
+     * @param gradingRegistry registry of supported graders loaded from config
+     */
     public JobController(JobRepository jobRepository,
                      GradingOrchestrator gradingOrchestrator,
                      Fabric8GradingOrchestrator fabric8GradingOrchestrator,
@@ -67,16 +89,27 @@ public class JobController {
     }
 
     /**
-     * Uploads file to the server, saves it to a local staging folder,
-     * creates a Job object, and saves it to the database.
+     * Uploads a submission file to the local staging folder and creates
+     * a corresponding Job row in the database.
      *
-     * @param file submission file to upload
-     * @return map of job id + response body, or error
+     * Flow:
+     * - sanitize file name
+     * - verify grader exists
+     * - create upload directory if needed
+     * - reject duplicate file names
+     * - write file to disk
+     * - create queued Job entry
+     *
+     * @param file uploaded submission file
+     * @param graderType selected grader key from the frontend
+     * @return message + job id on success, or an error response
      */
     @PostMapping("/jobs/upload")
     public ResponseEntity<Map<Long, String>> uploadFile(
         @RequestParam MultipartFile file,
         @RequestParam String graderType) {
+        String cleanedGraderType = graderType.trim();
+        graderRegistry.getRequired(cleanedGraderType);
         if(file.getContentType().equals("application/zip")) {
             try(ZipInputStream stream = new ZipInputStream(file.getInputStream())) {
                 ZipEntry entry;
@@ -159,7 +192,6 @@ public class JobController {
         graderRegistry.getRequired(cleanedGraderType);
 
         try {
-            // TODO: make grader type dynamic later
             Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
             jobRepository.save(job);
 
@@ -170,12 +202,17 @@ public class JobController {
     }
 
     /**
-     * Runs a single uploaded job through Kubernetes using kubectl.
-     * Updates job timestamps/status before and after execution.
+     * Runs a staged submission through the grading pipeline.
      *
-     * @param id       ID of job to run
-     * @param fileName raw request body containing file name
-     * @return grader JSON result
+     * This method:
+     * - loads the existing Job row
+     * - marks it RUNNING
+     * - invokes the grading orchestrator
+     * - stores success or failure details back into the database
+     *
+     * @param id id of the Job row to run
+     * @param fileName raw request body containing the uploaded file name
+     * @return grader result JSON on success, or an error body on failure
      */
     @PostMapping("/jobs/run/{id}")
     public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody String fileName) {
@@ -186,27 +223,37 @@ public class JobController {
         }
 
         Job job = jobEntity.get();
+        String cleanedFileName = null;
 
         try {
-            String cleanedFileName = sanitizeFileName(fileName);
+            cleanedFileName = sanitizeFileName(fileName);
 
+            // marks job as running, removing any other states
             job.setStatus(JobStatus.RUNNING);
             job.setStartedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
+            job.setFailureReason(FailureReason.NONE);
+            job.setFailureMessage(null);
             jobRepository.saveAndFlush(job);
 
+            // executes the submission via the kubernetes orchestrator
             JsonNode result = gradingOrchestrator.runJobInKubernetes(id, cleanedFileName, job.getGraderType());
 
+            // persists grading outputs back into the Job row
             applyJobResults(job, result);
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
+            job.setFailureReason(FailureReason.NONE);
+            job.setFailureMessage(null);
             jobRepository.saveAndFlush(job);
 
             return ResponseEntity.ok(result);
 
         } catch (IllegalArgumentException e) {
+            // Input/config-level problem such as missing file name or invalid grader.
             job.setStatus(JobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
+            job.setFailureReason(FailureReason.CONFIG_ERROR);
+            job.setFailureMessage(e.getMessage());
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
             jobRepository.saveAndFlush(job);
@@ -214,18 +261,46 @@ public class JobController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new StringNode(e.getMessage()));
 
-        } catch (Exception e) {
+        } catch (GradingFailureException e) {
+            // Structured grading failure from the orchestrator, such as timeout/resource failure.
             job.setStatus(JobStatus.FAILED);
-            job.setErrorMessage(e.getMessage());
+            job.setFailureReason(e.getFailureReason());
+            job.setFailureMessage(e.getMessage());
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
             jobRepository.saveAndFlush(job);
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new StringNode(e.getMessage()));
+
+        } catch (Exception e) {
+            // Fallback for any unexpected backend/runtime error.
+            job.setStatus(JobStatus.FAILED);
+            job.setFailureReason(FailureReason.UNKNOWN);
+            job.setFailureMessage(e.getMessage());
+            job.setFinishedAt(OffsetDateTime.now());
+            job.setUpdatedAt(OffsetDateTime.now());
+            jobRepository.saveAndFlush(job);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new StringNode(e.getMessage()));
+        } finally {
+            if (cleanedFileName != null) {
+                try {
+                    Path filePath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
+                    Files.deleteIfExists(filePath);
+                } catch (IOException e) {
+                    System.err.println("Failed to delete staged upload file '" + cleanedFileName + "': " + e.getMessage());
+                }
+            }
         }
     }
 
+    /**
+     * Returns recent jobs ordered by creation time descending.
+     *
+     * @return list of recent Job rows for the frontend jobs table
+     */
     @GetMapping("/jobs/recent")
     public ResponseEntity<List<Job>> getRecentJobs() {
         return ResponseEntity.ok(jobRepository.findAllOrderByCreatedAtDesc());
@@ -278,10 +353,17 @@ public class JobController {
     }
 
     /**
-     * Removes a staged uploaded file.
+     * Deletes a staged uploaded submission file from the local uploads folder.
      *
-     * @param fileName raw request body containing file name
-     * @return OK/Error if file could/could not be deleted
+     * This is currently the controller method responsible for removing the
+     * uploaded submission file itself. It is manual, meaning it only runs
+     * when the frontend explicitly calls this endpoint.
+     *
+     * This is kept for manual deletions to be used for admins and other use
+     * cases.
+     *
+     * @param fileName raw request body containing the file name to remove
+     * @return OK/Error response depending on whether deletion succeeded
      */
     @DeleteMapping("/files/remove")
     public ResponseEntity<String> removeFile(@RequestBody String fileName) {
@@ -302,6 +384,16 @@ public class JobController {
         }
     }
 
+    /**
+     * Returns the stored result JSON for a given job.
+     *
+     * This is used by the frontend to download a results file or inspect
+     * pretty-printed result JSON directly.
+     *
+     * @param id job id whose results should be returned
+     * @param fromTable whether the response should include an attachment header
+     * @return JSON result body or a not-found error
+     */
     @GetMapping("/jobs/result/{id}")
     public ResponseEntity<String> downloadResults(@PathVariable Long id, @RequestParam(defaultValue = "true") boolean fromTable) {
         Optional<Job> jobEntity = jobRepository.findById(id);
@@ -326,12 +418,23 @@ public class JobController {
         return new ResponseEntity<>(prettyJson, headers, HttpStatus.OK);
     }
 
+    /**
+     * Applies grader result JSON to the Job entity.
+     *
+     * This maps summary data such as status, score, test counts,
+     * failure message, and per-test results into the database row.
+     *
+     * @param job Job entity to update
+     * @param jobResults JSON object returned by the grader runtime
+     * @throws IOException if result JSON cannot be serialized back into a string
+     */
     private void applyJobResults(Job job, JsonNode jobResults) {
         if (jobResults == null || jobResults.get("status") == null) {
             throw new IllegalArgumentException("Grader result is missing required field: status");
         }
 
-        job.setStatus(parseJobStatus(jobResults.get("status").asString()));
+        JobStatus parsedStatus = parseJobStatus(jobResults.get("status").asString());
+        job.setStatus(parsedStatus);
 
         if (jobResults.has("tests_passed")) {
             job.setTestsPassed(jobResults.get("tests_passed").asInt());
@@ -348,9 +451,15 @@ public class JobController {
         }
 
         if (jobResults.has("error_message") && !jobResults.get("error_message").isNull()) {
-            job.setErrorMessage(jobResults.get("error_message").asString());
-        } else {
-            job.setErrorMessage(null);
+            job.setFailureMessage(jobResults.get("error_message").asString());
+
+            if (parsedStatus == JobStatus.FAILED
+                    && (job.getFailureReason() == null || job.getFailureReason() == FailureReason.NONE)) {
+                job.setFailureReason(FailureReason.UNKNOWN);
+            }
+        } else if (parsedStatus == JobStatus.SUCCEEDED) {
+            job.setFailureReason(FailureReason.NONE);
+            job.setFailureMessage(null);
         }
 
         if (jobResults.has("results")) {
@@ -358,6 +467,13 @@ public class JobController {
         }
     }
 
+    /**
+     * Converts a raw grader status string into the JobStatus enum used by the backend.
+     *
+     * @param rawStatus raw string from grader output
+     * @return parsed JobStatus enum value
+     * @throws IllegalArgumentException if the status is missing or invalid
+     */
     private JobStatus parseJobStatus(String rawStatus) {
         if (rawStatus == null || rawStatus.isBlank()) {
             throw new IllegalArgumentException("Job status is missing.");
@@ -370,6 +486,16 @@ public class JobController {
         return JobStatus.valueOf(normalized);
     }
 
+     /**
+     * Sanitizes and validates incoming file names before using them
+     * for local file system operations.
+     *
+     * This prevents blank file names and basic path traversal attempts.
+     *
+     * @param rawFileName raw incoming file name from the request
+     * @return cleaned file name safe to use under the uploads folder
+     * @throws IllegalArgumentException if the file name is missing or invalid
+     */
     private String sanitizeFileName(String rawFileName) {
         if (rawFileName == null) {
             throw new IllegalArgumentException("File name is required.");
@@ -393,6 +519,14 @@ public class JobController {
         return cleaned;
     }
 
+    /**
+     * Returns the list of grader options that should appear in the frontend dropdown.
+     *
+     * This converts the full grader definitions from the registry into a smaller
+     * DTO (Data Transfer Object) containing only the fields needed by the UI.
+     *
+     * @return list of frontend grader options
+     */
     @GetMapping("/graders")
     public ResponseEntity<List<GraderOptionResponse>> getGraders() {
         List<GraderOptionResponse> graders = graderRegistry.getAll().stream()

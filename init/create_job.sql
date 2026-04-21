@@ -15,6 +15,20 @@ CREATE TABLE jobs (
     status IN ('QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')
   ),
 
+  failure_reason TEXT CHECK (
+    failure_reason IN (
+      'NONE',
+      'TIMEOUT',
+      'RESOURCE_LIMIT',
+      'KUBERNETES_ERROR',
+      'RESULT_PARSE_ERROR',
+      'CONFIG_ERROR',
+      'UNKNOWN'
+    )
+  ),
+
+  failure_message TEXT,
+
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   started_at TIMESTAMPTZ,
@@ -24,7 +38,6 @@ CREATE TABLE jobs (
   tests_passed INT,
   tests_total INT,
 
-  error_message TEXT,
   result_json JSONB,
 
   k8s_job_name TEXT
@@ -33,6 +46,9 @@ CREATE TABLE jobs (
 -- Indexes
 CREATE INDEX idx_jobs_status
   ON jobs(status);
+
+CREATE INDEX idx_jobs_failure_reason
+  ON jobs(failure_reason);
 
 CREATE INDEX idx_jobs_grader_type
   ON jobs(grader_type);
