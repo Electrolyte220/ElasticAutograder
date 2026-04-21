@@ -16,6 +16,8 @@ const theme = themeQuartz.withParams({
   headerFontSize: 14
 });
 
+let currentPageSize = 5;
+
 export default function JobsTable({ jobs, gridRef, onViewDetails }) {
   const colDefs = useMemo(() => [
     { field: "id", headerName: "ID", cellDataType: "number", width: 75, flex: 0 },
@@ -46,8 +48,11 @@ export default function JobsTable({ jobs, gridRef, onViewDetails }) {
           gridOptions={{
             theme: theme,
             pagination: true,
-            paginationPageSize: 5,
+            paginationPageSize: currentPageSize,
             paginationPageSizeSelector: [5, 10, 25, 100],
+            onPaginationChanged: (p) => {
+              currentPageSize = p.api.paginationGetPageSize()
+            },
             domLayout: "autoHeight"
           }}
           getRowId={({ data }) => String(data.id)}
