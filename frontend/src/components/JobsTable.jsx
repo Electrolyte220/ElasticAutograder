@@ -20,13 +20,13 @@ let currentPageSize = 5;
 
 export default function JobsTable({ jobs, gridRef, onViewDetails }) {
   const colDefs = useMemo(() => [
-    { field: "id", headerName: "ID", cellDataType: "number", width: 75, flex: 0 },
-    { field: "graderType", headerName: "Grader Type", valueFormatter: ({ value }) => value ?? "" },
-    { field: "originalFilename", headerName: "Filename", valueFormatter: ({ value }) => value ?? "" },
-    { field: "status", headerName: "Status", valueFormatter: ({ value }) => value ?? "", width: 125, flex: 0 },
-    { field: "createdAt", headerName: "Created At", valueFormatter: ({ value }) => value ? formatDate(value) : "", width: 240, flex: 0 },
-    { field: "score", headerName: "Score", cellDataType: "number", valueFormatter: ({ value }) => value ?? "", width: 85, flex: 0 },
-    { field: "tests", headerName: "Tests", valueGetter: ({ data }) => formatTests(data), width: 85, flex: 0 },
+    { field: "id", headerName: "ID", cellDataType: "number", width: 100},
+    { field: "graderType", headerName: "Grader Type", valueFormatter: ({ value }) => value ?? "", width: 125},
+    { field: "originalFilename", headerName: "Filename", valueFormatter: ({ value }) => value ?? "", width: 150},
+    { field: "status", headerName: "Status", valueFormatter: ({ value }) => value ?? "", width: 125},
+    { field: "createdAt", headerName: "Created At", valueFormatter: ({ value }) => value ? formatDate(value) : "", width: 240},
+    { field: "score", headerName: "Score", cellDataType: "number", valueFormatter: ({ value }) => value ?? "", width: 100},
+    { field: "tests", headerName: "Tests", valueGetter: ({ data }) => formatTests(data), width: 100},
     {
       headerName: "Actions",
       cellRenderer: (params) => actionsCellRenderer({ ...params, onViewDetails }),
@@ -44,7 +44,7 @@ export default function JobsTable({ jobs, gridRef, onViewDetails }) {
           ref={gridRef}
           rowData={jobs}
           columnDefs={colDefs}
-          defaultColDef={{ filter: true, flex: 1, floatingFilter: true, suppressMovable: true }}
+          defaultColDef={{ filter: true, flex: 0, floatingFilter: true, suppressMovable: true}}
           gridOptions={{
             theme: theme,
             pagination: true,
