@@ -1,4 +1,5 @@
 import { downloadResults } from "../api/download_file";
+import { fetchFileNameFromId } from "../api/get_filename_from_id";
 import { useMemo } from "react";
 import { AgGridProvider, AgGridReact } from "ag-grid-react";
 import { AllCommunityModule } from "ag-grid-community";
@@ -116,11 +117,13 @@ function actionsCellRenderer({ data, onViewDetails }) {
 
 const handleDownload = async (id) => {
   try {
+    let name = await fetchFileNameFromId(id);
+    name = name.substring(0, name.length - 3);
     const blob = await downloadResults(id);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `results-${id}.json`;
+    a.download = `${name}-results.json`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
