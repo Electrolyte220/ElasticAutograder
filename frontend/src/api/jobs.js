@@ -9,3 +9,11 @@ export async function fetchRecentJobs() {
 
   return res.json();
 }
+
+export async function fetchJobsInRange(minId, maxId) {
+  const res = await fetch(`${API_BASE}/jobs/multi-submission?from=${minId}&to=${maxId}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch jobs in range ${minId}-${maxId}: ${res.status}`);
+    }
+  return res.json();
+}

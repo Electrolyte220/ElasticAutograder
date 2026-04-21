@@ -7,6 +7,16 @@ import org.hibernate.annotations.Type;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
+/**
+ * JPA entity representing one submitted grading job.
+ *
+ * This model stores:
+ * - basic submission metadata such as file name and grader type
+ * - execution lifecycle state such as queued/running/succeeded/failed
+ * - failure details for jobs that do not complete successfully
+ * - grading summary data such as score, test counts, and result JSON
+ * - Kubernetes job information when the submission is executed in-cluster
+ */
 @Entity
 @Table(name = "jobs")
 public class Job {
@@ -15,7 +25,7 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "grader_type")
+    @Column(name = "grader_type", nullable = false)
     private String graderType;
 
     @Column(name = "original_filename", nullable = false)
@@ -30,6 +40,13 @@ public class Job {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private JobStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "failure_reason")
+    private FailureReason failureReason;
+
+    @Column(name = "failure_message", columnDefinition = "text")
+    private String failureMessage;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -52,9 +69,6 @@ public class Job {
     @Column(name = "tests_total")
     private Integer testsTotal;
 
-    @Column(name = "error_message", columnDefinition = "text")
-    private String errorMessage;
-
     @Type(JsonBinaryType.class)
     @Column(name = "result_json", columnDefinition = "jsonb")
     private String resultJson;
@@ -71,6 +85,8 @@ public class Job {
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
         this.status = status;
+        this.failureReason = FailureReason.NONE;
+        this.failureMessage = null;
     }
 
     public Long getId() {
@@ -115,6 +131,22 @@ public class Job {
 
     public void setStatus(JobStatus status) {
         this.status = status;
+    }
+
+    public FailureReason getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(FailureReason failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public String getFailureMessage() {
+        return failureMessage;
+    }
+
+    public void setFailureMessage(String failureMessage) {
+        this.failureMessage = failureMessage;
     }
 
     public OffsetDateTime getCreatedAt() {
@@ -167,14 +199,6 @@ public class Job {
 
     public void setTestsTotal(Integer testsTotal) {
         this.testsTotal = testsTotal;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage;
     }
 
     public String getResultJson() {

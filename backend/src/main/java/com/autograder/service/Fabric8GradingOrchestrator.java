@@ -16,21 +16,35 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import com.autograder.model.FailureReason;
 import com.autograder.model.GraderDefinition;
 
+/**
+ * Main grading orchestrator implementation backed by the Fabric8 Kubernetes client.
+ *
+ * This service is responsible for:
+ * - creating a ConfigMap from the uploaded submission file
+ * - creating the Kubernetes grading Job
+ * - waiting for the Job to finish
+ * - reading grader logs back as JSON
+ * - classifying failures such as timeout or resource-limit errors
+ * - cleaning up temporary Kubernetes resources after execution
+ */
 @Primary
 @Service
 public class Fabric8GradingOrchestrator implements GradingOrchestrator {
+
+    // Local JSON mapper used to parse grader output returned from pod logs.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Local folder where uploaded submissions are temporarily staged before being put into kubernetes through a configMap
     private static final Path UPLOAD_ROOT = Path.of("grading/uploads");
     private static final String NAMESPACE = "default";
-    private static final String GRADER_IMAGE = "ea-grader-fibbonaci:v1";
-    private static final String MANIFEST_PATH_IN_IMAGE = "/app/grader/manifest.json";
 
     private final KubernetesClient kubernetesClient;
     private final GraderRegistry graderRegistry;
 
+    
     public Fabric8GradingOrchestrator(KubernetesClient kubernetesClient, GraderRegistry graderRegistry) {
         this.kubernetesClient = kubernetesClient;
         this.graderRegistry = graderRegistry;
@@ -49,14 +63,16 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         try{
             createSubmissionConfigMap(jobId, cleanedFileName);
             createGradingJob(jobId,grader);
-            waitForJobCompletion(jobId, 60);
+            waitForJobCompletion(jobId,grader.getTimeoutSeconds());
             String logs = getJobLogs(jobId);
 
             return objectMapper.readTree(logs);
         } 
         // add catch error handling pls - we can be more specific with exception types and error messages as needed
         catch (Exception err) {
-            throw new RuntimeException(
+            FailureReason failureReason = classifyFailure(err);
+            throw new GradingFailureException(
+                failureReason,
                 "Grading job " + jobId + " failed for grader '" + graderType + "': " + err.getMessage(),
                 err
             );
@@ -105,42 +121,50 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         // Template is under backend/grading/graders if you want a reference to how this should look in yaml format but this as pretty as it gets
         // for using k8s :D 
         Job job = new JobBuilder()
-                .withNewMetadata()
-                    .withName(jobName)
-                    .addToLabels("app", "elastic-autograder")
-                    .addToLabels("job-id", String.valueOf(jobId))
-                .endMetadata()
-                .withNewSpec()
-                    .withTtlSecondsAfterFinished(300)
-                    .withBackoffLimit(0)
-                    .withNewTemplate()
-                        .withNewMetadata()
-                            .addToLabels("app", "elastic-autograder")
-                            .addToLabels("job-id", String.valueOf(jobId))
-                        .endMetadata()
-                        .withNewSpec()
-                            .withRestartPolicy("Never")
-                            .addNewContainer()
-                                .withName("grader")
-                                .withImage(grader.getImageName())
-                                .withImagePullPolicy("IfNotPresent")
-                                .withCommand("python", "/app/main.py")
-                                .withArgs("/work/submission.py", grader.getManifestPath())
-                                .addNewVolumeMount()
-                                    .withName("submission-volume")
-                                    .withMountPath("/work")
-                                .endVolumeMount()
-                            .endContainer()
-                            .addNewVolume()
+            .withNewMetadata()
+                .withName(jobName)
+                .addToLabels("app", "elastic-autograder")
+                .addToLabels("job-id", String.valueOf(jobId))
+            .endMetadata()
+            .withNewSpec()
+                .withTtlSecondsAfterFinished(300)
+                .withBackoffLimit(0)
+                .withActiveDeadlineSeconds(grader.getTimeoutSeconds().longValue())
+                .withNewTemplate()
+                    .withNewMetadata()
+                        .addToLabels("app", "elastic-autograder")
+                        .addToLabels("job-id", String.valueOf(jobId))
+                    .endMetadata()
+                    .withNewSpec()
+                        .withRestartPolicy("Never")
+                        .addNewContainer()
+                            .withName("grader")
+                            .withImage(grader.getImageName())
+                            .withImagePullPolicy("IfNotPresent")
+                            .withCommand("python", "/app/main.py")
+                            .withArgs("/work/submission.py", grader.getManifestPath())
+                            .withNewResources()
+                                .addToRequests("cpu", toCpuQuantity(grader.getCpuRequestMilli()))
+                                .addToRequests("memory", toMemoryQuantity(grader.getMemoryRequestMb()))
+                                .addToLimits("cpu", toCpuQuantity(grader.getCpuLimitMilli()))
+                                .addToLimits("memory", toMemoryQuantity(grader.getMemoryLimitMb()))
+                            .endResources()
+                            .addNewVolumeMount()
                                 .withName("submission-volume")
-                                .withNewConfigMap()
-                                    .withName(configMapName)
-                                .endConfigMap()
-                            .endVolume()
-                        .endSpec()
-                    .endTemplate()
-                .endSpec()
-                .build();
+                                .withMountPath("/work")
+                            .endVolumeMount()
+                        .endContainer()
+                        .addNewVolume()
+                            .withName("submission-volume")
+                            .withNewConfigMap()
+                                .withName(configMapName)
+                            .endConfigMap()
+                        .endVolume()
+                    .endSpec()
+                .endTemplate()
+            .endSpec()
+            .build();
+
 
         // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues 
         return kubernetesClient.batch().v1().jobs()
@@ -174,7 +198,10 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 }
 
                 if (failed != null && failed > 0) {
-                    throw new IllegalStateException("Job failed: " + jobName);
+                    FailureReason reason = detectFailureReasonFromPod(jobId);
+                    String message = detectFailureMessageFromPod(jobId, "Job failed: " + jobName);
+
+                    throw new GradingFailureException(reason, message);
                 }
             }
 
@@ -219,6 +246,76 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         return logs;
     }
 
+    private FailureReason detectFailureReasonFromPod(Long jobId) {
+        String jobIdLabel = String.valueOf(jobId);
+
+        PodList podList = kubernetesClient.pods()
+                .inNamespace(NAMESPACE)
+                .withLabel("app", "elastic-autograder")
+                .withLabel("job-id", jobIdLabel)
+                .list();
+
+        if (podList == null || podList.getItems() == null || podList.getItems().isEmpty()) {
+            return FailureReason.KUBERNETES_ERROR;
+        }
+
+        for (Pod pod : podList.getItems()) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) {
+                continue;
+            }
+
+            // avoid using var normally to avoid too much abstraction, but for future devs this is Fabric8 type
+            for (var containerStatus : pod.getStatus().getContainerStatuses()) {
+                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
+                    continue;
+                }
+
+                String reason = containerStatus.getState().getTerminated().getReason();
+                if (reason != null && reason.equalsIgnoreCase("OOMKilled")) {
+                    return FailureReason.RESOURCE_LIMIT;
+                }
+            }
+        }
+
+        return FailureReason.KUBERNETES_ERROR;
+    }
+
+    private String detectFailureMessageFromPod(Long jobId, String defaultMessage) {
+        String jobIdLabel = String.valueOf(jobId);
+
+        PodList podList = kubernetesClient.pods()
+                .inNamespace(NAMESPACE)
+                .withLabel("app", "elastic-autograder")
+                .withLabel("job-id", jobIdLabel)
+                .list();
+
+        if (podList == null || podList.getItems() == null || podList.getItems().isEmpty()) {
+            return defaultMessage;
+        }
+
+        for (Pod pod : podList.getItems()) {
+            if (pod.getStatus() == null || pod.getStatus().getContainerStatuses() == null) {
+                continue;
+            }
+
+            for (var containerStatus : pod.getStatus().getContainerStatuses()) {
+                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
+                    continue;
+                }
+
+                var terminated = containerStatus.getState().getTerminated();
+                String reason = terminated.getReason();
+                Integer exitCode = terminated.getExitCode();
+
+                if (reason != null) {
+                    return "Job failed: " + reason + (exitCode != null ? " (exit code " + exitCode + ")" : "");
+                }
+            }
+        }
+
+        return defaultMessage;
+    }
+
     // Additional helper methods for cleanup, etc. can be added below
 
     // basic sanitization to prevent issues can be enhanced as needed
@@ -251,5 +348,36 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .inNamespace(NAMESPACE)
                 .withName(configMapName)
                 .delete();
+    }
+
+    private FailureReason classifyFailure(Exception err) {
+        String message = err.getMessage() == null ? "" : err.getMessage().toLowerCase();
+
+        if (message.contains("timed out")) {
+            return FailureReason.TIMEOUT;
+        }
+
+        if (message.contains("oomkilled") || message.contains("memory") || message.contains("resource")) {
+            return FailureReason.RESOURCE_LIMIT;
+        }
+
+        if (message.contains("json") || message.contains("parse")) {
+            return FailureReason.RESULT_PARSE_ERROR;
+        }
+
+        if (message.contains("config")) {
+            return FailureReason.CONFIG_ERROR;
+        }
+
+        return FailureReason.KUBERNETES_ERROR;
+    }
+
+    // lots of helper functions for converting resource values to k8s format, can be enhanced as needed
+    private io.fabric8.kubernetes.api.model.Quantity toCpuQuantity(Integer milli) {
+        return new io.fabric8.kubernetes.api.model.Quantity(milli + "m");
+    }
+
+    private io.fabric8.kubernetes.api.model.Quantity toMemoryQuantity(Integer mb) {
+        return new io.fabric8.kubernetes.api.model.Quantity(mb + "Mi");
     }
 }

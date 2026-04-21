@@ -7,14 +7,20 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/*
-Registers a kuberentes client object for the rest of the server so we don't 
-manualy have to write stuff with kubectl, needed for Fabric8 to communciate
-with the Kubernetes cluster which should be installed if this is being run.
-*/
+/**
+ * Spring configuration for the Fabric8 Kubernetes client.
+ *
+ * This registers a shared KubernetesClient bean so backend services can
+ * communicate with the Kubernetes cluster programmatically instead of
+ * manually calling writing raw string kubectl commands.
+ *
+ * In this project, the client is mainly used by the grading orchestrator
+ * to create jobs, inspect pod state, and clean up Kubernetes resources.
+ */
 @Configuration
 public class KubernetesConfig {
 
+    // Creates the shared Kubernetes client used across the backend
     @Bean
     public KubernetesClient kubernetesClient() {
         Config config = new ConfigBuilder().build();

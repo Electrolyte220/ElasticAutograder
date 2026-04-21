@@ -1,0 +1,22 @@
+{
+  "graders": [
+    {
+      "key": "fib",
+      "label": "Fibonacci",
+      "imageName": "ea-grader-fibbonaci:v1",
+      "manifestPath": "/app/grader/manifest.json"
+    },
+    {
+      "key": "twosum",
+      "label": "Two Sum",
+      "imageName": "ea-grader-twosum:v1",
+      "manifestPath": "/app/grader/manifest.json"
+    },
+    {
+      "key": "count",
+      "label": "Count N",
+      "imageName": "ea-grader-count:v1",
+      "manifestPath": "/app/grader/manifest.json"
+    }
+  ]
+}
