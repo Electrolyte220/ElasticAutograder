@@ -25,7 +25,12 @@ export default function JobsTable({ jobs, gridRef, onViewDetails }) {
     { field: "graderType", headerName: "Grader Type", valueFormatter: ({ value }) => value ?? "", width: 125},
     { field: "originalFilename", headerName: "Filename", valueFormatter: ({ value }) => value ?? "", width: 150},
     { field: "status", headerName: "Status", valueFormatter: ({ value }) => value ?? "", width: 125},
-    { field: "createdAt", headerName: "Created At", valueFormatter: ({ value }) => value ? formatDate(value) : "", width: 240},
+    { field: "createdAt", headerName: "Created At", valueFormatter: ({ value }) => value ? formatDate(value) : "", width: 240,
+      filterParams: {
+        includeTime: true,
+        comparator: (d1, d2) => new Date(d2).getTime() - new Date(d1).getTime()
+      }
+    },
     { field: "score", headerName: "Score", cellDataType: "number", valueFormatter: ({ value }) => value ?? "", width: 100},
     { field: "tests", headerName: "Tests", valueGetter: ({ data }) => formatTests(data), width: 100},
     {
