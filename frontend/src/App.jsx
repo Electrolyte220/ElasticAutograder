@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import JobsBoard from "./pages/JobsBoard";
 import SubmitJobPage from "./pages/SubmitJobPage";
 import LandingPage from "./pages/LandingPage";
+import "./App.css";
 
 export default function App() {
   return (

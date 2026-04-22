@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { uploadFile } from "../api/upload_file";
 import { runJob } from "../api/run_job";
 import { updateDB } from "../api/update_db";
-import { removeFile } from "../api/remove_uploaded_file";
 
 const API_BASE = "http://localhost:8080/api";
 
@@ -12,11 +11,13 @@ export default function SubmitJobPage() {
   const [status, setStatus] = useState("");
   const [graders, setGraders] = useState([]);
   const [selectedGrader, setSelectedGrader] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-    const selectedGraderInfo = graders.find(
+  const selectedGraderInfo = graders.find(
     (grader) => grader.key === selectedGrader
   );
+
   useEffect(() => {
     const fetchGraders = async () => {
       try {
@@ -36,7 +37,7 @@ export default function SubmitJobPage() {
   }, []);
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    setFile(e.target.files[0] ?? null);
   };
 
   const handleGraderChange = (e) => {
@@ -55,71 +56,101 @@ export default function SubmitJobPage() {
     }
 
     try {
-      setStatus("Uploading...");
+      setIsSubmitting(true);
+      setStatus("Uploading submission...");
+
       const message = await uploadFile(file, selectedGrader);
-      setStatus(message.message);
+      setStatus("Submission uploaded. Starting grader...");
+
       navigate("/jobs");
+
       const jobResponse = await runJob(message.id, file.name);
       const jobResults = await jobResponse.json();
 
       await updateDB(message.id, jobResults);
-
-      navigate("/jobs");
     } catch (err) {
-      setStatus(err.message);
+      setStatus(err.message || "Failed to submit job.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="jobs-page">
-      <div className="jobs-board-shell">
-        <div className="top-bar">
-          <h1 className="page-title">Submit Job</h1>
-          <Link to="/jobs" className="button nav-button">
-            Back to Jobs
-          </Link>
-        </div>
-        <div className="card">
-          <div className="form-group">
-            <label className="label">Select Grader</label>
-            <select
-              className="input"
-              value={selectedGrader}
-              onChange={handleGraderChange}
-            >
-              <option value="">Select a grader</option>
-              {graders.map((grader) => (
-                <option key={grader.key} value={grader.key}>
-                  {grader.label}
-                </option>
-              ))}
-            </select>
-          </div>
+    <div className="submit-page">
+  <div className="submit-shell compact-submit-shell">
+    <div className="submit-header compact-submit-header">
+      <h1 className="page-title">Submit Job</h1>
+      <Link to="/jobs" className="button nav-button">
+        Back to Jobs
+      </Link>
+    </div>
 
-          {selectedGraderInfo?.description && (
-            <div className="form-group">
-              <label className="label">Grader Description</label>
-              <div className="grader-description">
-                {selectedGraderInfo.description}
-              </div>
+    <div className="card submit-card compact-submit-card">
+      <div className="submit-form-grid compact-submit-form-grid">
+        <div className="form-group">
+          <label className="label" htmlFor="grader-select">
+            Select Grader
+          </label>
+          <select
+            id="grader-select"
+            className="input"
+            value={selectedGrader}
+            onChange={handleGraderChange}
+            disabled={isSubmitting}
+          >
+            <option value="">Select a grader</option>
+            {graders.map((grader) => (
+              <option key={grader.key} value={grader.key}>
+                {grader.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedGraderInfo?.description && (
+          <div className="grader-description-card compact-description-card">
+            <div className="grader-description-title">
+              {selectedGraderInfo.label}
             </div>
-          )}
-
-          <div className="form-group">
-            <label className="label">Upload Submission (Python only)</label>
-            <input
-              className="input"
-              type="file"
-              onChange={handleFileChange}
-            />
+            <p className="grader-description-text">
+              {selectedGraderInfo.description}
+            </p>
           </div>
-          <button className="button" onClick={handleSubmit}>
-            Submit Job
-          </button>
+        )}
 
-          {status && <p>{status}</p>}
+        <div className="form-group">
+          <label className="label" htmlFor="submission-file">
+            Upload Submission
+          </label>
+          <input
+            id="submission-file"
+            className="file-input"
+            type="file"
+            onChange={handleFileChange}
+            disabled={isSubmitting}
+          />
+          <div className="file-meta">
+            <span className="file-meta-label">Selected file:</span>
+            <span className="file-meta-name">
+              {file ? file.name : "No file selected"}
+            </span>
+          </div>
         </div>
+
+        <div className="submit-actions compact-submit-actions">
+          <button
+            className="button submit-primary-button"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Submitting..." : "Submit Job"}
+          </button>
+        </div>
+
+        {status && <div className="submit-status-message">{status}</div>}
       </div>
     </div>
+  </div>
+</div>
   );
 }

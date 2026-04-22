@@ -25,8 +25,8 @@ public class GraderConfigLoader {
     private static final int DEFAULT_TIMEOUT_SECONDS = 10; // 10 originally
     private static final int DEFAULT_CPU_REQUEST_MILLI = 100; // 100 originally
     private static final int DEFAULT_CPU_LIMIT_MILLI = 500; // 500 originally
-    private static final int DEFAULT_MEMORY_REQUEST_MB = 32; // 128 originally
-    private static final int DEFAULT_MEMORY_LIMIT_MB = 64; // 512 originally
+    private static final int DEFAULT_MEMORY_REQUEST_MB = 128; // 128 originally
+    private static final int DEFAULT_MEMORY_LIMIT_MB = 512; // 512 originally
 
     // Jackson mapper to turn grader.json into java objects we can read
     private final ObjectMapper objectMapper;

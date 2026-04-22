@@ -9,3 +9,13 @@ export async function fetchRecentJobs() {
 
   return res.json();
 }
+
+export async function fetchGraders() {
+  const res = await fetch(`${API_BASE}/graders`);
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch graders: ${res.status}`);
+  }
+
+  return res.json();
+}

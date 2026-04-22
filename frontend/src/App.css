@@ -40,3 +40,323 @@
 .read-the-docs {
   color: #888;
 }
+
+.jobs-page {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.jobs-board-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+.jobs-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.jobs-top-bar-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page-title {
+  margin: 0;
+}
+
+.jobs-subtitle {
+  margin: 0;
+  color: #b8c0cc;
+  font-size: 0.95rem;
+}
+
+.jobs-top-bar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.jobs-board-card {
+  padding: 12px;
+  border-radius: 14px;
+}
+
+/* status pills */
+.status-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+/* status pill colors */
+.status-pending {
+  background: rgba(140, 140, 140, 0.22);
+  color: #d6d6d6;
+}
+
+.status-queued {
+  background: rgba(255, 214, 10, 0.18);
+  color: #ffe27a;
+}
+
+.status-running {
+  background: rgba(70, 160, 255, 0.18);
+  color: #8bc2ff;
+}
+
+.status-succeeded {
+  background: rgba(46, 204, 113, 0.18);
+  color: #8df0b0;
+}
+
+.status-failed {
+  background: rgba(255, 99, 99, 0.18);
+  color: #ff9c9c;
+}
+
+.status-cancelled {
+  background: rgba(170, 120, 255, 0.18);
+  color: #d0b0ff;
+}
+
+/* subtle full row tinting */
+.ag-row.job-row-pending .ag-cell {
+  background-color: rgba(160, 160, 160, 0.06);
+}
+
+.ag-row.job-row-queued .ag-cell {
+  background-color: rgba(255, 214, 10, 0.07);
+}
+
+.ag-row.job-row-running .ag-cell {
+  background-color: rgba(70, 160, 255, 0.07);
+}
+
+.ag-row.job-row-succeeded .ag-cell {
+  background-color: rgba(46, 204, 113, 0.07);
+}
+
+.ag-row.job-row-failed .ag-cell {
+  background-color: rgba(255, 99, 99, 0.07);
+}
+
+.ag-row.job-row-cancelled .ag-cell {
+  background-color: rgba(170, 120, 255, 0.07);
+}
+
+.submit-page {
+  min-height: 100vh;
+}
+
+.submit-shell {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+.submit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.submit-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.submit-subtitle {
+  margin: 0;
+  color: #b8c0cc;
+  font-size: 0.98rem;
+}
+
+.submit-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.submit-card {
+  padding: 28px;
+  border-radius: 16px;
+}
+
+.submit-card-header {
+  margin-bottom: 24px;
+}
+
+.submit-card-title {
+  margin: 0 0 8px 0;
+  font-size: 1.35rem;
+  color: #ffffff;
+}
+
+.submit-card-description {
+  margin: 0;
+  color: #b8c0cc;
+  line-height: 1.5;
+}
+
+.submit-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.grader-description-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.grader-description-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #ffffff;
+}
+
+.grader-description-text {
+  margin: 0;
+  color: #c8d0db;
+  line-height: 1.55;
+}
+
+.file-upload-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  color: #ffffff;
+}
+
+.file-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+
+.file-meta-label {
+  color: #9aa7b8;
+  font-weight: 600;
+}
+
+.file-meta-name {
+  color: #ffffff;
+}
+
+.submit-actions {
+  margin-top: 28px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.submit-primary-button {
+  min-width: 160px;
+}
+
+.submit-primary-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.submit-status-message {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d9e0ea;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  line-height: 1.45;
+}
+
+.compact-submit-shell {
+  max-width: 900px;
+  padding-top: 36px;
+}
+
+.compact-submit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.compact-submit-card {
+  padding: 20px 18px;
+  border-radius: 14px;
+}
+
+.compact-submit-form-grid {
+  gap: 16px;
+}
+
+.compact-description-card {
+  padding: 12px 14px;
+}
+
+.compact-submit-actions {
+  margin-top: 8px;
+}
+
+.page-title {
+  margin: 0;
+}
+
+.form-group {
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.98rem;
+}
+
+.file-input {
+  padding: 10px;
+}
+
+.file-meta {
+  font-size: 0.92rem;
+}
+
+.submit-status-message {
+  margin-top: 10px;
+  padding: 10px 12px;
+}
