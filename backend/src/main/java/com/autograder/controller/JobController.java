@@ -1,7 +1,6 @@
 package com.autograder.controller;
 
 import java.io.File;
-import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -10,7 +9,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -41,7 +39,6 @@ import com.autograder.service.GradingFailureException;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.StringNode;
 
 /**
@@ -196,6 +193,14 @@ public class JobController {
         }
     }
 
+    /**
+     * Runs a list of jobs from specified min to max id.
+     * Runs each job in a CompletableFuture, to allow jobs to be run in parallel.
+     * Once a job finished, it will be updated in the database with the results.
+     * @param minId Job id to start at
+     * @param maxId Last job id to run
+     * @return JSON results for all ran jobs
+     */
     @PostMapping("jobs/run-all")
     public ResponseEntity<List<JsonNode>> runAllJobs(@RequestParam long minId, @RequestParam long maxId) {
         List<CompletableFuture<Pair<Long, JsonNode>>> responses = new ArrayList<>();
@@ -204,26 +209,22 @@ public class JobController {
             String fileName = jobRepository.getReferenceById(finalId).getOriginalFilename();
             CompletableFuture<Pair<Long, JsonNode>> result = CompletableFuture.supplyAsync(() -> {
                 try {
-                    return Pair.of(finalId, runJob(finalId, fileName).getBody());
+                    JsonNode response = runJob(finalId, fileName).getBody();
+                    Optional<Job> jobEntity = jobRepository.findById(finalId);
+                    if (jobEntity.isPresent()) {
+                        Job job = jobEntity.get();
+                        applyJobResults(job, response);
+                        job.setUpdatedAt(OffsetDateTime.now());
+                        jobRepository.saveAndFlush(job);
+                    }
+                    return Pair.of(finalId, response);
                 } catch (EntityNotFoundException e) {
                     return Pair.of(finalId, new StringNode("Unable to find job for id: " + finalId));
                 }
             });
             responses.add(result);
         }
-        var results = responses.stream().map(CompletableFuture::join).toList();
-        results.forEach(pair -> {
-            try {
-                Optional<Job> jobEntity = jobRepository.findById(pair.getFirst());
-                if (jobEntity.isPresent()) {
-                    Job job = jobEntity.get();
-                    applyJobResults(job, pair.getSecond());
-                    job.setUpdatedAt(OffsetDateTime.now());
-                    jobRepository.saveAndFlush(job);
-                }
-            } catch(EntityNotFoundException ignored) {}
-        });
-        return ResponseEntity.ok(results.stream().map(Pair::getSecond).toList());
+        return ResponseEntity.ok(responses.stream().map(CompletableFuture::join).map(Pair::getSecond).toList());
     }
 
     /**
