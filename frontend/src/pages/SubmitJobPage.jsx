@@ -1,10 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { uploadFile } from "../api/upload_file";
-import { runJob } from "../api/run_job";
-import { updateDB } from "../api/update_db";
-import { removeFile } from "../api/remove_uploaded_file";
-import { fetchFileNameFromId } from "../api/get_filename_from_id";
+import { runAllJobs } from "../api/run_all_jobs";
 
 const API_BASE = "http://localhost:8080/api";
 
@@ -62,20 +59,14 @@ export default function SubmitJobPage() {
       if(minId == maxId) navigate("/jobs");
       else {
           navigate(`/multi-submission?from=${minId}&to=${maxId}`)
-          }
-      for (let i = 0; i < Object.keys(message).length; i++) {
-        try {
-        let id = Object.keys(message)[i];
-        const fileName = await fetchFileNameFromId(id);
-        const jobResponse = await runJob(id, fileName);
-        const jobResults = await jobResponse.json();
-
-        await updateDB(id, jobResults);
-        } catch(err) {
-          setStatus(err.message)
-        }
-        //todo: check navigate("/jobs");
-        }
+      }
+      try {
+        const response = await runAllJobs(minId, maxId);
+        const jobResults = await response.json();
+        console.log(jobResults);
+      } catch (err) {
+        setStatus(err.message)
+      }
     } catch (err) {
       setStatus(err.message);
     }

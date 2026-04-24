@@ -8,10 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -42,6 +41,7 @@ import com.autograder.service.GradingFailureException;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.StringNode;
 
 /**
@@ -194,6 +194,36 @@ public class JobController {
         } catch (IllegalArgumentException e) {
             return Pair.of(HttpStatus.BAD_REQUEST, Pair.of(-1L, e.getMessage()));
         }
+    }
+
+    @PostMapping("jobs/run-all")
+    public ResponseEntity<List<JsonNode>> runAllJobs(@RequestParam long minId, @RequestParam long maxId) {
+        List<CompletableFuture<Pair<Long, JsonNode>>> responses = new ArrayList<>();
+        for(long id = minId; id <= maxId; ++id) {
+            long finalId = id;
+            String fileName = jobRepository.getReferenceById(finalId).getOriginalFilename();
+            CompletableFuture<Pair<Long, JsonNode>> result = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return Pair.of(finalId, runJob(finalId, fileName).getBody());
+                } catch (EntityNotFoundException e) {
+                    return Pair.of(finalId, new StringNode("Unable to find job for id: " + finalId));
+                }
+            });
+            responses.add(result);
+        }
+        var results = responses.stream().map(CompletableFuture::join).toList();
+        results.forEach(pair -> {
+            try {
+                Optional<Job> jobEntity = jobRepository.findById(pair.getFirst());
+                if (jobEntity.isPresent()) {
+                    Job job = jobEntity.get();
+                    applyJobResults(job, pair.getSecond());
+                    job.setUpdatedAt(OffsetDateTime.now());
+                    jobRepository.saveAndFlush(job);
+                }
+            } catch(EntityNotFoundException ignored) {}
+        });
+        return ResponseEntity.ok(results.stream().map(Pair::getSecond).toList());
     }
 
     /**
