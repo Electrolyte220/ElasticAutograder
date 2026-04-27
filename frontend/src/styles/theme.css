@@ -83,6 +83,10 @@ body {
   color: var(--success);
 }
 
+.status-partial {
+  color: var(--warning);
+}
+
 .status-failed,
 .status-cancelled {
   color: var(--error);
@@ -96,6 +100,9 @@ body {
   padding: 10px 14px;
   cursor: pointer;
   font-weight: 600;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.2;
 }
 
 .button:disabled {

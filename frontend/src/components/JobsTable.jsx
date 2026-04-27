@@ -29,7 +29,23 @@ export default function JobsTable({ jobs, graders, gridRef, onViewDetails }) {
 
   const colDefs = useMemo(
     () => [
-      { field: "id", headerName: "ID", cellDataType: "number", width: 75, flex: 0 },
+      {
+        field: "id",
+        headerName: "ID",
+        cellDataType: "number",
+        width: 75,
+        flex: 0,
+        cellRenderer: ({ value, data }) => (
+          <button
+            type="button"
+            className="jobs-link-button"
+            onClick={() => onViewDetails?.(data)}
+            title={`Open job ${value}`}
+          >
+            #{value}
+          </button>
+        )
+      },
       {
         field: "graderType",
         headerName: "Grader Type",
@@ -90,6 +106,7 @@ export default function JobsTable({ jobs, graders, gridRef, onViewDetails }) {
       "job-row-queued": (params) => params.data?.status === "QUEUED",
       "job-row-running": (params) => params.data?.status === "RUNNING",
       "job-row-succeeded": (params) => params.data?.status === "SUCCEEDED",
+      "job-row-partial": (params) => params.data?.status === "PARTIAL",
       "job-row-failed": (params) => params.data?.status === "FAILED",
       "job-row-cancelled": (params) => params.data?.status === "CANCELLED"
     }),
@@ -137,33 +154,24 @@ function formatTests(data) {
 }
 
 function actionsCellRenderer({ data, onViewDetails }) {
-  const canDownload = data.status === "SUCCEEDED";
+  const canDownload = Boolean(data?.resultJson);
 
   return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "center", height: "100%" }}>
+    <div className="jobs-table-actions">
       <button
+        type="button"
+        className="jobs-table-action-button"
         onClick={() => onViewDetails?.(data)}
-        style={{
-          padding: "6px 10px",
-          borderRadius: "4px",
-          border: "none",
-          cursor: "pointer"
-        }}
       >
         Details
       </button>
 
       <button
+        type="button"
+        className="jobs-table-action-button"
         onClick={() => handleDownload(data.id)}
         disabled={!canDownload}
-        title={canDownload ? "Download results.json" : "No downloadable results available"}
-        style={{
-          padding: "6px 10px",
-          borderRadius: "4px",
-          border: "none",
-          cursor: canDownload ? "pointer" : "not-allowed",
-          opacity: canDownload ? 1 : 0.5
-        }}
+        title={canDownload ? "Download results.json" : "Results download is available when results exist"}
       >
         Download Results
       </button>

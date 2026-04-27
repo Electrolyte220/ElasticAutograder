@@ -12,12 +12,14 @@ CREATE TABLE jobs (
   grader_image TEXT,
 
   status TEXT NOT NULL CHECK (
-    status IN ('QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')
+    status IN ('PENDING', 'QUEUED', 'RUNNING', 'SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELLED')
   ),
 
   failure_reason TEXT CHECK (
     failure_reason IN (
       'NONE',
+      'INVALID_UPLOAD',
+      'WRONG_ANSWER',
       'TIMEOUT',
       'RESOURCE_LIMIT',
       'KUBERNETES_ERROR',

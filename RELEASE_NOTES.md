@@ -1,21 +1,31 @@
 \# Elastic Autograder - Beta Release Notes
 
-Version: 0.1.1 
+Version: 0.1.2
+
+- Added batch `.zip` submissions so one upload can create and run multiple grading jobs.
+- Improved grading reliability with safer upload handling, clearer failure reasons, and more accurate result statuses.
+- Added a job details flow with dedicated job pages, saved-result views, and auto-refresh for active jobs.
+- Updated the jobs and submit pages with clearer grader information, cleaner actions, and improved status display.
+- Split backend startup into `dev` and `local` profiles, with better setup, testing, and database migration documentation.
+- Fixed end-to-end test fixtures for the `mocksubmission/fib/` layout and expanded backend test coverage.
+- Improved repo hygiene by ignoring local cache files and cleaning up tracked mock submission artifacts.
+
+Version: 0.1.1
 
 This version adds a new feature of dynamic grading!
 The dynamic grading feature is mainly based off the config/graders.json file.
-We changed the hardcoded interpretation to reading the graders.json and then injecting it to pass both to the frontend and backend to properly add new members. 
+We changed the hardcoded interpretation to reading the graders.json and then injecting it to pass both to the frontend and backend to properly add new members.
 
 Short description of how to add a custom grader below!
 
 1. Add the problem description under graders.json
 2. Add a new entry
 - Fill in key, label, imageName with custom inputs
-- Keep manifestPath the same as the rest ONLY change this if you know what you're doing and would like to change the app location 
+- Keep manifestPath the same as the rest ONLY change this if you know what you're doing and would like to change the app location
 3. Create a folder in backend/image-build with the same name as the key in the entry you created
-4. Add a manifest.json file to the folder with the main json contract (read others to get an idea of what it should look like) 
+4. Add a manifest.json file to the folder with the main json contract (read others to get an idea of what it should look like)
 - Also important please make sure you have the right answers for the grading (I wasted an hour trying to debug this before)
-5. Run the main script to build every dynamic member of graders.json 
+5. Run the main script to build every dynamic member of graders.json
 - Linux/MacOS:
 ```bash
 python3 scripts/setup_graders.py

@@ -19,3 +19,13 @@ export async function fetchGraders() {
 
   return res.json();
 }
+
+export async function fetchJobById(jobId) {
+  const res = await fetch(`${API_BASE}/jobs/${jobId}`);
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch job ${jobId}: ${res.status}`);
+  }
+
+  return res.json();
+}
