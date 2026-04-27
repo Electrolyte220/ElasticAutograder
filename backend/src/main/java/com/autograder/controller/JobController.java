@@ -1,13 +1,21 @@
 package com.autograder.controller;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,16 +32,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.autograder.dto.GraderOptionResponse;
 import com.autograder.model.FailureReason;
+import com.autograder.model.GraderDefinition;
 import com.autograder.model.Job;
 import com.autograder.model.JobStatus;
-import com.autograder.model.GraderDefinition;
-import com.autograder.dto.GraderOptionResponse;
 import com.autograder.repository.JobRepository;
 import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GraderRegistry;
-import com.autograder.service.GradingOrchestrator;
 import com.autograder.service.GradingFailureException;
+import com.autograder.service.GradingOrchestrator;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -104,10 +112,7 @@ public class JobController {
         @RequestParam MultipartFile file,
         @RequestParam String graderType
     ) {
-        String originalFileName = file.getOriginalFilename();
-
         try {
-            String fileName = sanitizeFileName(originalFileName);
             String cleanedGraderType = graderType.trim();
 
             // double check grader exists before continuing
@@ -117,42 +122,25 @@ public class JobController {
                 Files.createDirectories(UPLOAD_ROOT);
             }
 
-            Path filePath = UPLOAD_ROOT.resolve(fileName).normalize();
-
-            if (Files.exists(filePath)) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(Map.of(
-                                "message", "File with this name already exists.",
-                                "id", -1L
-                        ));
-            }
-
-            // write the uploaded submissions fo the staging area
-            Files.write(filePath, file.getBytes());
-
-            // Create a new Job row for execution and for the database
-            Job job = new Job(fileName, cleanedGraderType, OffsetDateTime.now(), JobStatus.QUEUED);
-            
-            job.setSubmissionPath(filePath.toString());
-            job.setGraderImage(grader.getImageName());
-
-            jobRepository.save(job);
+            List<Map<String, Object>> jobs = isZipUpload(file)
+                    ? createJobsFromZip(file, cleanedGraderType, grader)
+                    : List.of(createJobForSingleFile(file, cleanedGraderType, grader));
 
             return ResponseEntity.ok(Map.of(
-                    "message", "Successfully uploaded file.",
-                    "id", job.getId()
+                    "message", jobs.size() == 1 ? "Successfully uploaded file." : "Successfully uploaded batch.",
+                    "jobs", jobs
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of(
                             "message", e.getMessage(),
-                            "id", -1L
+                            "jobs", List.of()
                     ));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "message", "Failed to save uploaded file.",
-                            "id", -1L
+                            "jobs", List.of()
                     ));
         }
     }
@@ -171,7 +159,7 @@ public class JobController {
      * @return grader result JSON on success, or an error body on failure
      */
     @PostMapping("/jobs/run/{id}")
-    public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody String fileName) {
+    public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody(required = false) String fileName) {
         Optional<Job> jobEntity = jobRepository.findById(id);
         if (jobEntity.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -179,10 +167,10 @@ public class JobController {
         }
 
         Job job = jobEntity.get();
-        String cleanedFileName = null;
+        String stagedSubmissionPath = null;
 
         try {
-            cleanedFileName = sanitizeFileName(fileName);
+            stagedSubmissionPath = resolveSubmissionPath(job, fileName);
 
             // marks job as running, removing any other states
             job.setStatus(JobStatus.RUNNING);
@@ -192,16 +180,14 @@ public class JobController {
             job.setFailureMessage(null);
             jobRepository.saveAndFlush(job);
 
-            // executes the submission via the kubernetes orchestrator 
-            JsonNode result = gradingOrchestrator.runJobInKubernetes(id, cleanedFileName, job.getGraderType());
+            // executes the submission via the kubernetes orchestrator
+            JsonNode result = gradingOrchestrator.runJobInKubernetes(id, stagedSubmissionPath, job.getGraderType());
 
             // persists grading outputs back into the Job row
             applyJobResults(job, result);
             job.setFinishedAt(OffsetDateTime.now());
             job.setUpdatedAt(OffsetDateTime.now());
-            job.setFailureReason(FailureReason.NONE);
-            job.setFailureMessage(null);
-            job.setK8sJobName("grading-job-"+id);
+            job.setK8sJobName("grading-job-" + id);
             jobRepository.saveAndFlush(job);
 
             return ResponseEntity.ok(result);
@@ -242,13 +228,14 @@ public class JobController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new StringNode(e.getMessage()));
         } finally {
-            if (cleanedFileName != null) {
+            if (stagedSubmissionPath != null) {
                 try {
-                    Path filePath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
-                    job.setSubmissionPath(cleanedFileName);
+                    Path filePath = resolveUploadPath(stagedSubmissionPath);
+                    job.setSubmissionPath(stagedSubmissionPath);
                     Files.deleteIfExists(filePath);
+                    deleteEmptyUploadParents(filePath);
                 } catch (IOException e) {
-                    System.err.println("Failed to delete staged upload file '" + cleanedFileName + "': " + e.getMessage());
+                    System.err.println("Failed to delete staged upload file '" + stagedSubmissionPath + "': " + e.getMessage());
                 }
             }
         }
@@ -262,6 +249,23 @@ public class JobController {
     @GetMapping("/jobs/recent")
     public ResponseEntity<List<Job>> getRecentJobs() {
         return ResponseEntity.ok(jobRepository.findAllOrderByCreatedAtDesc());
+    }
+
+    /**
+     * Returns a single job by database id.
+     *
+     * @param id database id of the job row
+     * @return Job row when found, or a not-found error body
+     */
+    @GetMapping("/jobs/{id}")
+    public ResponseEntity<?> getJobById(@PathVariable Long id) {
+        Optional<Job> jobEntity = jobRepository.findById(id);
+        if (jobEntity.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Unable to find job with id: " + id);
+        }
+
+        return ResponseEntity.ok(jobEntity.get());
     }
 
     /**
@@ -295,7 +299,7 @@ public class JobController {
      * This is currently the controller method responsible for removing the
      * uploaded submission file itself. It is manual, meaning it only runs
      * when the frontend explicitly calls this endpoint.
-     * 
+     *
      * This is kept for manual deletions to be used for admins and other use
      * cases.
      *
@@ -305,14 +309,14 @@ public class JobController {
     @DeleteMapping("/files/remove")
     public ResponseEntity<String> removeFile(@RequestBody String fileName) {
         try {
-            String cleanedFileName = sanitizeFileName(fileName);
-            Path filePath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
+            Path filePath = resolveUploadPath(fileName);
 
             if (!Files.exists(filePath)) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("File not found.");
             }
 
             Files.delete(filePath);
+            deleteEmptyUploadParents(filePath);
             return ResponseEntity.ok("Successfully deleted file.");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -332,7 +336,7 @@ public class JobController {
      * @return JSON result body or a not-found error
      */
     @GetMapping("/jobs/result/{id}")
-    public ResponseEntity<String> downloadResults(@PathVariable Long id, @RequestParam(defaultValue = "true") boolean fromTable) {
+    public ResponseEntity<String> downloadResults(@PathVariable Long id, @RequestParam(defaultValue = "true") boolean fromTable) throws IOException {
         Optional<Job> jobEntity = jobRepository.findById(id);
         if (jobEntity.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -349,7 +353,7 @@ public class JobController {
         String prettyJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(resultJson);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        if(fromTable) {
+        if (fromTable) {
             headers.setContentDispositionFormData("attachment", "results.json");
         }
         return new ResponseEntity<>(prettyJson, headers, HttpStatus.OK);
@@ -387,16 +391,23 @@ public class JobController {
             job.setScore(BigDecimal.ZERO);
         }
 
-        if (jobResults.has("error_message") && !jobResults.get("error_message").isNull()) {
-            job.setFailureMessage(jobResults.get("error_message").asText());
-
-            if (parsedStatus == JobStatus.FAILED
-                    && (job.getFailureReason() == null || job.getFailureReason() == FailureReason.NONE)) {
-                job.setFailureReason(FailureReason.UNKNOWN);
-            }
-        } else if (parsedStatus == JobStatus.SUCCEEDED) {
+        if (parsedStatus != JobStatus.FAILED) {
             job.setFailureReason(FailureReason.NONE);
             job.setFailureMessage(null);
+        }
+
+        if (parsedStatus == JobStatus.FAILED
+                && jobResults.has("error_message")
+                && !jobResults.get("error_message").isNull()) {
+            job.setFailureMessage(jobResults.get("error_message").asText());
+
+            boolean validationFailed = jobResults.has("validation_passed")
+                    && !jobResults.get("validation_passed").isNull()
+                    && !jobResults.get("validation_passed").asBoolean();
+
+            if (job.getFailureReason() == null || job.getFailureReason() == FailureReason.NONE) {
+                job.setFailureReason(validationFailed ? FailureReason.INVALID_UPLOAD : FailureReason.WRONG_ANSWER);
+            }
         }
 
         if (jobResults.has("results")) {
@@ -456,6 +467,217 @@ public class JobController {
         return cleaned;
     }
 
+    private boolean isZipUpload(MultipartFile file) {
+        String originalFileName = file.getOriginalFilename();
+        return originalFileName != null && originalFileName.toLowerCase().endsWith(".zip");
+    }
+
+    private Map<String, Object> createJobForSingleFile(
+            MultipartFile file,
+            String graderType,
+            GraderDefinition grader
+    ) throws IOException {
+        String fileName = sanitizeFileName(file.getOriginalFilename());
+        Path filePath = resolveUploadPath(fileName);
+
+        if (Files.exists(filePath)) {
+            throw new IllegalArgumentException("File with this name already exists.");
+        }
+
+        Files.write(filePath, file.getBytes(), StandardOpenOption.CREATE_NEW);
+
+        Job job = new Job(fileName, graderType, OffsetDateTime.now(), JobStatus.QUEUED);
+        job.setSubmissionPath(fileName);
+        job.setGraderImage(grader.getImageName());
+        jobRepository.save(job);
+
+        return Map.of(
+                "id", job.getId(),
+                "fileName", job.getOriginalFilename()
+        );
+    }
+
+    private List<Map<String, Object>> createJobsFromZip(
+            MultipartFile file,
+            String graderType,
+            GraderDefinition grader
+    ) throws IOException {
+        String batchDirectoryName = "batch-" + UUID.randomUUID();
+        Path batchDirectory = resolveUploadPath(batchDirectoryName);
+        Files.createDirectories(batchDirectory);
+
+        List<Job> createdJobs = new ArrayList<>();
+        List<Path> extractedFiles = new ArrayList<>();
+
+        try (InputStream inputStream = file.getInputStream(); ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
+            Set<String> seenBasenames = new LinkedHashSet<>();
+            ZipEntry entry;
+
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+
+                Path relativeEntryPath = sanitizeZipEntryName(entry.getName());
+                String baseName = relativeEntryPath.getFileName().toString();
+
+                if (!seenBasenames.add(baseName)) {
+                    throw new IllegalArgumentException("Zip archive contains duplicate file names: " + baseName);
+                }
+
+                Path extractedPath = batchDirectory.resolve(relativeEntryPath).normalize();
+                if (!extractedPath.startsWith(batchDirectory)) {
+                    throw new IllegalArgumentException("Zip archive contains an invalid file path.");
+                }
+
+                Files.createDirectories(extractedPath.getParent());
+                Files.copy(zipInputStream, extractedPath);
+                extractedFiles.add(extractedPath);
+                zipInputStream.closeEntry();
+            }
+
+            if (extractedFiles.isEmpty()) {
+                throw new IllegalArgumentException("Zip archive does not contain any files.");
+            }
+
+            List<Map<String, Object>> uploadedJobs = new ArrayList<>();
+            for (Path extractedFile : extractedFiles) {
+                String relativeSubmissionPath = UPLOAD_ROOT.relativize(extractedFile).toString().replace('\\', '/');
+                String originalFileName = extractedFile.getFileName().toString();
+
+                Job job = new Job(originalFileName, graderType, OffsetDateTime.now(), JobStatus.QUEUED);
+                job.setSubmissionPath(relativeSubmissionPath);
+                job.setGraderImage(grader.getImageName());
+                jobRepository.save(job);
+                createdJobs.add(job);
+
+                uploadedJobs.add(Map.of(
+                        "id", job.getId(),
+                        "fileName", originalFileName
+                ));
+            }
+
+            return uploadedJobs;
+        } catch (IOException | RuntimeException e) {
+            cleanupCreatedJobs(createdJobs);
+            cleanupBatchDirectory(batchDirectory);
+            throw e;
+        }
+    }
+
+    private String resolveSubmissionPath(Job job, String rawRequestBody) {
+        String storedPath = job.getSubmissionPath();
+        if (storedPath != null && !storedPath.isBlank()) {
+            return sanitizeStoredSubmissionPath(storedPath);
+        }
+
+        return sanitizeStoredSubmissionPath(rawRequestBody);
+    }
+
+    private Path resolveUploadPath(String rawRelativePath) {
+        String cleanedPath = sanitizeStoredSubmissionPath(rawRelativePath);
+        Path resolvedPath = UPLOAD_ROOT.resolve(cleanedPath).normalize();
+        if (!resolvedPath.startsWith(UPLOAD_ROOT)) {
+            throw new IllegalArgumentException("Invalid file name.");
+        }
+        return resolvedPath;
+    }
+
+    private String sanitizeStoredSubmissionPath(String rawPath) {
+        if (rawPath == null) {
+            throw new IllegalArgumentException("File name is required.");
+        }
+
+        String cleaned = rawPath.trim();
+
+        if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() >= 2) {
+            cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
+        }
+
+        if (cleaned.isBlank()) {
+            throw new IllegalArgumentException("File name is required.");
+        }
+
+        cleaned = cleaned.replace('\\', '/');
+        Path normalized = Path.of(cleaned).normalize();
+
+        if (normalized.isAbsolute() || normalized.startsWith("..")) {
+            throw new IllegalArgumentException("Invalid file name.");
+        }
+
+        String normalizedString = normalized.toString().replace('\\', '/');
+        if (normalizedString.isBlank() || normalizedString.equals(".")) {
+            throw new IllegalArgumentException("File name is required.");
+        }
+
+        return normalizedString;
+    }
+
+    private Path sanitizeZipEntryName(String rawEntryName) {
+        if (rawEntryName == null || rawEntryName.isBlank()) {
+            throw new IllegalArgumentException("Zip archive contains an invalid file path.");
+        }
+
+        String cleanedEntry = rawEntryName.replace('\\', '/');
+        Path normalized = Path.of(cleanedEntry).normalize();
+
+        if (normalized.isAbsolute() || normalized.startsWith("..")) {
+            throw new IllegalArgumentException("Zip archive contains an invalid file path.");
+        }
+
+        if (normalized.getFileName() == null) {
+            throw new IllegalArgumentException("Zip archive contains an invalid file path.");
+        }
+
+        return normalized;
+    }
+
+    private void cleanupCreatedJobs(List<Job> createdJobs) {
+        for (Job createdJob : createdJobs) {
+            try {
+                jobRepository.delete(createdJob);
+            } catch (Exception ignored) {
+                // Best-effort rollback for partially created batch jobs.
+            }
+        }
+    }
+
+    private void cleanupBatchDirectory(Path batchDirectory) throws IOException {
+        if (!Files.exists(batchDirectory)) {
+            return;
+        }
+
+        try (var walk = Files.walk(batchDirectory)) {
+            walk.sorted((left, right) -> right.compareTo(left))
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException ignored) {
+                            // Best-effort cleanup for failed zip uploads.
+                        }
+                    });
+        }
+    }
+
+    private void deleteEmptyUploadParents(Path filePath) throws IOException {
+        Path parent = filePath.getParent();
+        while (parent != null && !parent.equals(UPLOAD_ROOT)) {
+            if (!Files.isDirectory(parent)) {
+                break;
+            }
+
+            try (var children = Files.list(parent)) {
+                if (children.findAny().isPresent()) {
+                    break;
+                }
+            }
+
+            Files.deleteIfExists(parent);
+            parent = parent.getParent();
+        }
+    }
+
     /**
      * Returns the list of grader options that should appear in the frontend dropdown.
      *
@@ -470,7 +692,8 @@ public class JobController {
                 .map(grader -> new GraderOptionResponse(
                         grader.getKey(),
                         grader.getLabel(),
-                        grader.getDescription()
+                        grader.getSummary(),
+                        grader.getDetails()
                 ))
                 .toList();
 

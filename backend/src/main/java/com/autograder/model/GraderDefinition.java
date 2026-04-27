@@ -1,11 +1,14 @@
 package com.autograder.model;
 
+import java.util.List;
+
 public class GraderDefinition {
     private String key; // main key for identifying the grader, e.g. "fib" or "twosum"
     private String label; // human readable label for the grader, e.g. "Fibonacci" or "Two Sum"
     private String imageName; // the name of the docker image for this grader, e.g. "ea-grader-fibbonaci:v1" or "ea-grader-twosum:v1"
     private String manifestPath; // the path to the manifest file for this grader, e.g. "/app/grader/manifest.json"
-    private String description; // short descriptoion of the grader, can be overridden by manifest
+    private String summary; // short overview shown in the submit page
+    private List<String> details; // longer description points rendered as a list
 
     private Integer timeoutSeconds; // default timeout for all graders
 
@@ -30,7 +33,8 @@ public class GraderDefinition {
             String label,
             String imageName,
             String manifestPath,
-            String description,
+            String summary,
+            List<String> details,
             Integer timeoutSeconds,
             Integer cpuRequestMilli,
             Integer cpuLimitMilli,
@@ -41,7 +45,8 @@ public class GraderDefinition {
         this.label = label;
         this.imageName = imageName;
         this.manifestPath = manifestPath;
-        this.description = description;
+        this.summary = summary;
+        this.details = details;
 
         this.timeoutSeconds = timeoutSeconds != null ? timeoutSeconds : 10;
         this.cpuRequestMilli = cpuRequestMilli != null ? cpuRequestMilli : 100;
@@ -52,7 +57,7 @@ public class GraderDefinition {
 
     // constructor calls the other one with default values for the optional fields
     public GraderDefinition(String key, String label, String imageName, String manifestPath) {
-        this(key, label, imageName, manifestPath, null, 
+        this(key, label, imageName, manifestPath, null, null,
             null, null, null, null, null);
     }
 
@@ -89,8 +94,20 @@ public class GraderDefinition {
         this.manifestPath = manifestPath;
     }
 
-    public String getDescription() {
-        return description;
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public List<String> getDetails() {
+        return details;
+    }
+
+    public void setDetails(List<String> details) {
+        this.details = details;
     }
 
     public Integer getTimeoutSeconds() {

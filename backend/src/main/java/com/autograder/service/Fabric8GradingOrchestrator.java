@@ -82,7 +82,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         }
         GraderDefinition grader = graderRegistry.getRequired(graderType);
 
-        String cleanedFileName = sanitizeFileName(fileName);
+        String cleanedFileName = sanitizeSubmissionPath(fileName);
         String configMapName = "submission-job-" + jobId;
 
         try{
@@ -127,8 +127,8 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
      * @throws Exception if the submission file cannot be found or read
      */
     public ConfigMap createSubmissionConfigMap(Long jobId, String fileName) throws Exception {
-        String cleanedFileName = sanitizeFileName(fileName);
-        Path submissionPath = UPLOAD_ROOT.resolve(cleanedFileName).normalize();
+        String cleanedFileName = sanitizeSubmissionPath(fileName);
+        Path submissionPath = resolveSubmissionPath(cleanedFileName);
 
         if (!Files.exists(submissionPath)) {
             throw new IllegalArgumentException("Submission file not found: " + cleanedFileName);
@@ -415,12 +415,12 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     // Additional helper methods for cleanup, etc. can be added below
 
     // basic sanitization to prevent issues can be enhanced as needed
-    private String sanitizeFileName(String rawFileName) {
-        if (rawFileName == null) {
+    private String sanitizeSubmissionPath(String rawSubmissionPath) {
+        if (rawSubmissionPath == null) {
             throw new IllegalArgumentException("File name is required.");
         }
 
-        String cleaned = rawFileName.trim();
+        String cleaned = rawSubmissionPath.trim();
 
         if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() >= 2) {
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
@@ -430,11 +430,27 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
             throw new IllegalArgumentException("File name is required.");
         }
 
-        if (cleaned.contains("..") || cleaned.contains("/") || cleaned.contains("\\")) {
+        cleaned = cleaned.replace('\\', '/');
+        Path normalized = Path.of(cleaned).normalize();
+
+        if (normalized.isAbsolute() || normalized.startsWith("..")) {
             throw new IllegalArgumentException("Invalid file name.");
         }
 
-        return cleaned;
+        String normalizedString = normalized.toString().replace('\\', '/');
+        if (normalizedString.isBlank() || normalizedString.equals(".")) {
+            throw new IllegalArgumentException("File name is required.");
+        }
+
+        return normalizedString;
+    }
+
+    private Path resolveSubmissionPath(String submissionPath) {
+        Path resolved = UPLOAD_ROOT.resolve(submissionPath).normalize();
+        if (!resolved.startsWith(UPLOAD_ROOT)) {
+            throw new IllegalArgumentException("Invalid file name.");
+        }
+        return resolved;
     }
 
     // Cleanup method to delete ConfigMap and Job after completion

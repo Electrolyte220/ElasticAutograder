@@ -32,7 +32,11 @@ class GraderConfigLoaderTest {
                       "label": "Fibonacci",
                       "imageName": "ea-grader-fibbonaci:v1",
                       "manifestPath": "/app/grader/manifest.json",
-                      "description": "Classic dynamic programming problem.",
+                      "summary": "Classic dynamic programming problem.",
+                      "details": [
+                        "Return the nth Fibonacci number.",
+                        "Assume the sequence starts at 0 and 1."
+                      ],
                       "timeoutSeconds": 10,
                       "cpuRequestMilli": 100,
                       "cpuLimitMilli": 500,
@@ -44,7 +48,10 @@ class GraderConfigLoaderTest {
                       "label": "Two Sum",
                       "imageName": "ea-grader-twosum:v1",
                       "manifestPath": "/app/grader/manifest.json",
-                      "description": "Array and hash map problem.",
+                      "summary": "Array and hash map problem.",
+                      "details": [
+                        "Return the indices of the two numbers that add up to the target."
+                      ],
                       "timeoutSeconds": 10,
                       "cpuRequestMilli": 100,
                       "cpuLimitMilli": 500,
@@ -67,7 +74,8 @@ class GraderConfigLoaderTest {
         assertEquals("Fibonacci", fib.getLabel());
         assertEquals("ea-grader-fibbonaci:v1", fib.getImageName());
         assertEquals("/app/grader/manifest.json", fib.getManifestPath());
-        assertEquals("Classic dynamic programming problem.", fib.getDescription());
+        assertEquals("Classic dynamic programming problem.", fib.getSummary());
+        assertEquals(2, fib.getDetails().size());
         assertEquals(10, fib.getTimeoutSeconds());
         assertEquals(100, fib.getCpuRequestMilli());
         assertEquals(500, fib.getCpuLimitMilli());
@@ -101,6 +109,8 @@ class GraderConfigLoaderTest {
               "label": "Fibonacci",
               "imageName": "ea-grader-fibbonaci:v1",
               "manifestPath": "/app/grader/manifest.json",
+              "summary": "Dynamic programming warm-up.",
+              "details": ["Return the nth Fibonacci number."],
               "timeoutSeconds": 10,
               "cpuRequestMilli": 100,
               "cpuLimitMilli": 500,
@@ -112,6 +122,8 @@ class GraderConfigLoaderTest {
               "label": "Duplicate Fibonacci",
               "imageName": "ea-grader-fibbonaci:v2",
               "manifestPath": "/app/grader/manifest.json",
+              "summary": "Duplicate key entry.",
+              "details": ["Used to verify duplicate validation."],
               "timeoutSeconds": 10,
               "cpuRequestMilli": 100,
               "cpuLimitMilli": 500,
@@ -146,6 +158,8 @@ class GraderConfigLoaderTest {
                       "label": "Fibonacci",
                       "imageName": "ea-grader-fibbonaci:v1",
                       "manifestPath": "/app/grader/manifest.json",
+                      "summary": "Dynamic programming warm-up.",
+                      "details": ["Return the nth Fibonacci number."],
                       "cpuRequestMilli": 600,
                       "cpuLimitMilli": 500,
                       "memoryRequestMb": 128,
@@ -165,6 +179,67 @@ class GraderConfigLoaderTest {
         );
 
         assertTrue(ex.getMessage().contains("cpuRequestMilli greater than cpuLimitMilli"));
+    }
+
+    @Test
+    void loadGraders_missingSummary_throwsException() throws Exception {
+        Path configFile = tempDir.resolve("graders.json");
+
+        String json = """
+                {
+                  "graders": [
+                    {
+                      "key": "fib",
+                      "label": "Fibonacci",
+                      "imageName": "ea-grader-fibbonaci:v1",
+                      "manifestPath": "/app/grader/manifest.json",
+                      "details": ["Return the nth Fibonacci number."]
+                    }
+                  ]
+                }
+                """;
+
+        Files.writeString(configFile, json);
+
+        GraderConfigLoader loader = createLoader();
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> loader.loadGraders(configFile)
+        );
+
+        assertTrue(ex.getMessage().contains("missing a summary"));
+    }
+
+    @Test
+    void loadGraders_blankDetailsEntry_throwsException() throws Exception {
+        Path configFile = tempDir.resolve("graders.json");
+
+        String json = """
+                {
+                  "graders": [
+                    {
+                      "key": "fib",
+                      "label": "Fibonacci",
+                      "imageName": "ea-grader-fibbonaci:v1",
+                      "manifestPath": "/app/grader/manifest.json",
+                      "summary": "Dynamic programming warm-up.",
+                      "details": ["   "]
+                    }
+                  ]
+                }
+                """;
+
+        Files.writeString(configFile, json);
+
+        GraderConfigLoader loader = createLoader();
+
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> loader.loadGraders(configFile)
+        );
+
+        assertTrue(ex.getMessage().contains("invalid details entry"));
     }
 
     @Test

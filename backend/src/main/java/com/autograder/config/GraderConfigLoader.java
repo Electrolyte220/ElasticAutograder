@@ -170,6 +170,18 @@ public class GraderConfigLoader {
           throw new IllegalStateException("Grader '" + grader.getKey() + "' is missing a manifestPath.");
       }
 
+      if (grader.getSummary() == null || grader.getSummary().isBlank()) {
+          throw new IllegalStateException("Grader '" + grader.getKey() + "' is missing a summary.");
+      }
+
+      if (grader.getDetails() != null) {
+          for (String detail : grader.getDetails()) {
+              if (detail == null || detail.isBlank()) {
+                  throw new IllegalStateException("Grader '" + grader.getKey() + "' has an invalid details entry.");
+              }
+          }
+      }
+
       if (grader.getTimeoutSeconds() == null || grader.getTimeoutSeconds() <= 0) {
           throw new IllegalStateException("Grader '" + grader.getKey() + "' has invalid timeoutSeconds.");
       }
