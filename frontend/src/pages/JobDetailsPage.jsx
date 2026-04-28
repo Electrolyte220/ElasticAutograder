@@ -110,7 +110,7 @@ export default function JobDetailsPage() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `results-${job.id}.json`;
+      link.download = `${job.originalFilename}-results.json`;
       link.click();
       URL.revokeObjectURL(url);
     } catch {

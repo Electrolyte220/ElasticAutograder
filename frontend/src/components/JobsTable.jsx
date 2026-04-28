@@ -169,7 +169,7 @@ function actionsCellRenderer({ data, onViewDetails }) {
       <button
         type="button"
         className="jobs-table-action-button"
-        onClick={() => handleDownload(data.id)}
+        onClick={() => handleDownload(data)}
         disabled={!canDownload}
         title={canDownload ? "Download results.json" : "Results download is available when results exist"}
       >
@@ -179,13 +179,13 @@ function actionsCellRenderer({ data, onViewDetails }) {
   );
 }
 
-const handleDownload = async (id) => {
+const handleDownload = async (job) => {
   try {
-    const blob = await downloadResults(id);
+    const blob = await downloadResults(job.id);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `results-${id}.json`;
+    a.download = `${job.originalFilename}-results.json`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
