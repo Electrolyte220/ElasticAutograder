@@ -1,133 +1,171 @@
-# Testing Documentation
+# Testing And Verification Guide
 
-This document explains how the system is tested and how to run the tests locally. The project includes unit tests for individual components and a system test for the full autograder workflow.
+This document explains how to run the project checks used for the 1.0.0 source/test package. The repository currently includes automated backend unit tests, a backend integration/system test, frontend linting, frontend production build verification, and backend coverage reporting through JaCoCo.
 
----
+## Backend Test Coverage
 
-## Unit Tests
+Backend tests live under:
 
-Unit tests are used to verify that individual parts of the system work correctly on their own.
+```text
+backend/src/test/java/com/autograder
+```
 
-### What is tested
+The test suite includes unit tests for individual backend components and an integration/system test for the grading runtime pipeline.
 
-#### JobController Tests
+## Unit Test Example
 
-These tests verify the file upload functionality in the system.
+`JobControllerTest` is a representative unit test class.
 
-They check:
+Location:
 
-- A file can be uploaded successfully
-- Duplicate file uploads are rejected
-- The correct success and error messages are returned
+```text
+backend/src/test/java/com/autograder/controller/JobControllerTest.java
+```
 
----
+It verifies controller behavior for:
 
-#### JobRepository Tests
+- single-file uploads
+- duplicate upload rejection
+- `.zip` batch upload
+- invalid or empty zip uploads
+- job execution state changes
+- failure handling
+- stored result download behavior
 
-These tests verify that job data is correctly stored and managed in the database layer.
-
-They check:
-
-- Job records are saved correctly
-- Job records can be retrieved when needed
-- The system maintains consistent submission data
-
----
-
-#### GraderRegistry Tests
-
-These tests verify that grader definitions are correctly registered and returned by the system.
-
-They check:
-
-- A valid grader key returns the correct grader definition
-- The returned grader contains the expected label, image name, and manifest path
-- Invalid grader keys are handled properly
-
-These tests help confirm that the backend can correctly look up the grader configuration needed before creating grading jobs.
-
----
-
-#### Fabric8GradingOrchestrator Tests
-
-These tests verify that Kubernetes job creation logic is built correctly before being sent to the cluster.
-
-They check:
-
-- The grading job is created with the correct job name
-- The correct grader container image is used
-- The correct submission path and manifest path are passed as container arguments
-
-These tests help ensure that the backend constructs grading jobs correctly and sends the right configuration to Kubernetes.
-
----
-
-## System Test
-
-The system test verifies the full end-to-end autograder workflow.
-
-### What is tested
-
-This test simulates a real student submission and checks the full process:
-
-- A sample submission file is selected
-- The file is passed into the backend system
-- The Python grading engine is executed
-- A result and exit code are returned
-- The system confirms the process completes successfully
-
-This ensures that all components (backend + grading engine) work together correctly.
-
-The fixture layout is problem-aware:
-
-- Fibonacci fixtures are resolved from `mocksubmission/fib/`
-- Other shared fixtures continue to live under `mocksubmission/`
-
----
-
-## Why Testing Matters
-
-Testing ensures the system is reliable and continues to work as changes are made.
-
-- Unit tests ensure individual components work correctly on their own
-- System tests ensure all components work together as a full workflow
-
-Without testing, issues in file handling, storage, or grading execution could go unnoticed.
-
----
-
-## Running Tests
-
-All backend tests are run from the `backend` directory.
-
-### 1. Move into the backend folder
+Run only this unit test:
 
 ```bash
 cd backend
+./gradlew test --tests com.autograder.controller.JobControllerTest --no-daemon
 ```
 
-### 2. Run the backend test suite
+## Integration/System Test Example
 
-```bash
-./gradlew test
+`AutograderSystemTest` is the integration/system test class.
+
+Location:
+
+```text
+backend/src/test/java/com/autograder/integration/AutograderSystemTest.java
 ```
 
-### 3. Choose the backend profile you want to verify
+It verifies the full Python grading runtime path:
 
-Use `dev` when you want grader setup to rebuild and load images automatically on startup.
+- selects a sample submission fixture
+- selects the matching grader manifest
+- runs `grading/image-build/runtime/main.py`
+- parses JSON grader output
+- verifies pass, fail, partial-credit, and invalid-upload behavior
+
+Run only this integration/system test:
 
 ```bash
-./gradlew bootRun --args='--spring.profiles.active=dev'
+cd backend
+./gradlew test --tests com.autograder.integration.AutograderSystemTest --no-daemon
 ```
 
-Use `local` for faster day-to-day restarts without automatic grader rebuilds.
+## Run All Backend Tests
+
+From the repository root:
 
 ```bash
+cd backend
+./gradlew test --no-daemon
+```
+
+JUnit XML results are generated under:
+
+```text
+backend/build/test-results/test
+```
+
+The human-readable test report is generated at:
+
+```text
+backend/build/reports/tests/test/index.html
+```
+
+## Generate Backend Coverage
+
+Run backend tests and generate JaCoCo coverage:
+
+```bash
+cd backend
+./gradlew test jacocoTestReport --no-daemon
+```
+
+Coverage reports are generated at:
+
+```text
+backend/build/reports/jacoco/test/html/index.html
+backend/build/reports/jacoco/test/jacocoTestReport.xml
+backend/build/reports/jacoco/test/jacocoTestReport.csv
+```
+
+The HTML report is the easiest version to inspect in a browser. The CSV report is useful for copying summary coverage values into release notes.
+
+## Frontend Verification
+
+The frontend currently does not include a dedicated unit test framework. For the 1.0.0 package, frontend verification is handled through linting and a production build.
+
+Run lint:
+
+```bash
+cd frontend
+npm run lint
+```
+
+Run a production build:
+
+```bash
+cd frontend
+npm run build
+```
+
+Build output is generated under:
+
+```text
+frontend/dist
+```
+
+## Latest Test Results
+
+Latest local verification was run on April 27, 2026.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend clean build | `cd backend && ./gradlew clean build --no-daemon` | Passed |
+| Backend tests and coverage | `cd backend && ./gradlew test jacocoTestReport --no-daemon` | Passed |
+| Frontend lint | `cd frontend && npm run lint` | Passed |
+| Frontend production build | `cd frontend && npm run build` | Passed |
+
+Coverage summary:
+
+```text
+Instruction coverage: 80.4% (2,533 of 3,149 instructions covered)
+Branch coverage: 57.3% (213 of 372 branches covered)
+Line coverage: 81.5% (651 of 799 lines covered)
+```
+
+## Local Backend Profiles
+
+Use `local` for faster day-to-day backend restarts:
+
+```bash
+cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-If you need a one-off rebuild while staying on `local`, override the property directly:
+Use `dev` when the backend should rebuild and load grader images automatically on startup. The frontend can open while setup is still running, but job upload/run requests are temporarily unavailable until setup finishes:
 
 ```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+Use this one-off override if you want local mode plus grader setup:
+
+```bash
+cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local --graders.setup-on-startup=true'
 ```

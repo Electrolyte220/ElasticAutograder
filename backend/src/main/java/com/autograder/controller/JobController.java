@@ -3,9 +3,10 @@ package com.autograder.controller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -13,10 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -42,6 +43,7 @@ import com.autograder.service.Fabric8GradingOrchestrator;
 import com.autograder.service.GraderRegistry;
 import com.autograder.service.GradingFailureException;
 import com.autograder.service.GradingOrchestrator;
+import com.autograder.service.LocalGraderSetupStatus;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -71,6 +73,7 @@ public class JobController {
     private final ObjectMapper objectMapper;
     private final Fabric8GradingOrchestrator fabric8GradingOrchestrator;
     private final GraderRegistry graderRegistry;
+    private final LocalGraderSetupStatus graderSetupStatus;
 
     /**
      * Constructs the controller with the required repository and service dependencies.
@@ -84,11 +87,21 @@ public class JobController {
                      GradingOrchestrator gradingOrchestrator,
                      Fabric8GradingOrchestrator fabric8GradingOrchestrator,
                      GraderRegistry gradingRegistry) {
+        this(jobRepository, gradingOrchestrator, fabric8GradingOrchestrator, gradingRegistry, new LocalGraderSetupStatus());
+    }
+
+    @Autowired
+    public JobController(JobRepository jobRepository,
+                     GradingOrchestrator gradingOrchestrator,
+                     Fabric8GradingOrchestrator fabric8GradingOrchestrator,
+                     GraderRegistry gradingRegistry,
+                     LocalGraderSetupStatus graderSetupStatus) {
     this.jobRepository = jobRepository;
     this.gradingOrchestrator = gradingOrchestrator;
     this.fabric8GradingOrchestrator = fabric8GradingOrchestrator;
     this.objectMapper = new ObjectMapper();
     this.graderRegistry = gradingRegistry;
+    this.graderSetupStatus = graderSetupStatus;
     }
 
     /**
@@ -113,6 +126,14 @@ public class JobController {
         @RequestParam String graderType
     ) {
         try {
+            if (!graderSetupStatus.isAcceptingJobs()) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(Map.of(
+                                "message", graderSetupStatus.getMessage(),
+                                "jobs", List.of()
+                        ));
+            }
+
             String cleanedGraderType = graderType.trim();
 
             // double check grader exists before continuing
@@ -160,6 +181,11 @@ public class JobController {
      */
     @PostMapping("/jobs/run/{id}")
     public ResponseEntity<JsonNode> runJob(@PathVariable Long id, @RequestBody(required = false) String fileName) {
+        if (!graderSetupStatus.isAcceptingJobs()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new StringNode(graderSetupStatus.getMessage()));
+        }
+
         Optional<Job> jobEntity = jobRepository.findById(id);
         if (jobEntity.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -502,9 +528,7 @@ public class JobController {
             String graderType,
             GraderDefinition grader
     ) throws IOException {
-        String batchDirectoryName = "batch-" + UUID.randomUUID();
-        Path batchDirectory = resolveUploadPath(batchDirectoryName);
-        Files.createDirectories(batchDirectory);
+        Path batchDirectory = createZipUploadDirectory(file.getOriginalFilename());
 
         List<Job> createdJobs = new ArrayList<>();
         List<Path> extractedFiles = new ArrayList<>();
@@ -563,6 +587,29 @@ public class JobController {
             cleanupCreatedJobs(createdJobs);
             cleanupBatchDirectory(batchDirectory);
             throw e;
+        }
+    }
+
+    private Path createZipUploadDirectory(String rawZipFileName) throws IOException {
+        String zipFileName = sanitizeFileName(rawZipFileName);
+        String lowerZipFileName = zipFileName.toLowerCase();
+        int extensionStart = lowerZipFileName.lastIndexOf(".zip");
+        String baseName = zipFileName.substring(0, extensionStart);
+        String extension = zipFileName.substring(extensionStart);
+
+        int suffix = 1;
+        while (true) {
+            String candidateName = suffix == 1
+                    ? zipFileName
+                    : baseName + "-" + suffix + extension;
+            Path candidateDirectory = resolveUploadPath(candidateName);
+
+            try {
+                Files.createDirectory(candidateDirectory);
+                return candidateDirectory;
+            } catch (FileAlreadyExistsException e) {
+                suffix++;
+            }
         }
     }
 

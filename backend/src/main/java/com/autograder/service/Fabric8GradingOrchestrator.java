@@ -137,7 +137,18 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         String submissionContents = Files.readString(submissionPath);
         String configMapName = "submission-job-" + jobId;
 
-        ConfigMap configMap = new ConfigMapBuilder()
+        ConfigMap configMap = buildSubmissionConfigMap(jobId, submissionContents);
+
+        return kubernetesClient.configMaps()
+                .inNamespace(NAMESPACE)
+                .resource(configMap)
+                .createOrReplace();
+    }
+
+    ConfigMap buildSubmissionConfigMap(Long jobId, String submissionContents) {
+        String configMapName = "submission-job-" + jobId;
+
+        return new ConfigMapBuilder()
                 .withNewMetadata()
                     .withName(configMapName)
                     .addToLabels("app", "elastic-autograder")
@@ -145,11 +156,6 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .endMetadata()
                 .addToData("submission.py", submissionContents)
                 .build();
-
-        return kubernetesClient.configMaps()
-                .inNamespace(NAMESPACE)
-                .resource(configMap)
-                .createOrReplace();
     }
 
     /**
@@ -167,13 +173,23 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
      * @return created or replaced Kubernetes Job resource
      */
     public Job createGradingJob(Long jobId, GraderDefinition grader) {
+        Job job = buildGradingJob(jobId, grader);
+
+        // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues 
+        return kubernetesClient.batch().v1().jobs()
+                .inNamespace(NAMESPACE)
+                .resource(job)
+                .createOrReplace();
+    }
+
+    Job buildGradingJob(Long jobId, GraderDefinition grader) {
         String jobName = "grading-job-" + jobId;
         String configMapName = "submission-job-" + jobId;
 
         // important note for understanding this, this basically is just a yaml file so it'll look crazy unless you understand k8s yaml structure
         // Template is under backend/grading/graders if you want a reference to how this should look in yaml format but this as pretty as it gets
         // for using k8s :D 
-        Job job = new JobBuilder()
+        return new JobBuilder()
             .withNewMetadata()
                 .withName(jobName)
                 .addToLabels("app", "elastic-autograder")
@@ -217,13 +233,6 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
                 .endTemplate()
             .endSpec()
             .build();
-
-
-        // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues 
-        return kubernetesClient.batch().v1().jobs()
-                .inNamespace(NAMESPACE)
-                .resource(job)
-                .createOrReplace();
     }
 
     /**

@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import com.autograder.config.GraderConfigLoader;
 import com.autograder.model.GraderDefinition;
 
 class GraderRegistryTest {
@@ -35,6 +38,10 @@ class GraderRegistryTest {
         return grader;
     }
 
+    /**
+     * Verifies that a registered Fibonacci grader can be looked up by key.
+     * Expected behavior: the registry returns the exact grader metadata needed to create a job.
+     */
     @Test
     void getRequired_validKey_returnsCorrectFibGrader() {
         GraderRegistry registry = createRegistry();
@@ -48,6 +55,10 @@ class GraderRegistryTest {
         assertEquals("/app/grader/manifest.json", grader.getManifestPath());
     }
 
+    /**
+     * Verifies that a registered Two Sum grader can be looked up by key.
+     * Expected behavior: the registry returns the correct label, image, and manifest path.
+     */
     @Test
     void getRequired_validKey_returnsCorrectTwoSumGrader() {
         GraderRegistry registry = createRegistry();
@@ -61,6 +72,10 @@ class GraderRegistryTest {
         assertEquals("/app/grader/manifest.json", grader.getManifestPath());
     }
 
+    /**
+     * Verifies that unknown grader keys fail fast.
+     * Expected behavior: the registry throws an IllegalArgumentException instead of returning null.
+     */
     @Test
     void getRequired_unknownKey_throwsIllegalArgumentException() {
         GraderRegistry registry = createRegistry();
@@ -73,6 +88,10 @@ class GraderRegistryTest {
         assertTrue(exception.getMessage().contains("Unknown grader key"));
     }
 
+    /**
+     * Verifies that all configured graders are exposed for frontend selection.
+     * Expected behavior: getAll returns every registered grader definition.
+     */
     @Test
     void getAll_returnsAllRegisteredGraders() {
         GraderRegistry registry = createRegistry();
@@ -95,6 +114,10 @@ class GraderRegistryTest {
         assertTrue(hasTwoSum);
     }
 
+    /**
+     * Verifies that callers cannot mutate the registry's grader list.
+     * Expected behavior: getAll returns an unmodifiable copy of the registered graders.
+     */
     @Test
     void getAll_returnsUnmodifiableList() {
         GraderRegistry registry = createRegistry();
@@ -102,7 +125,24 @@ class GraderRegistryTest {
         List<GraderDefinition> graders = registry.getAll();
 
         assertThrows(UnsupportedOperationException.class, () ->
-                graders.add(createGrader("new", "New Grader", "ea-grader-new:v1"))
+            graders.add(createGrader("new", "New Grader", "ea-grader-new:v1"))
         );
+    }
+
+    /**
+     * Verifies that the production constructor loads graders through GraderConfigLoader.
+     * Expected behavior: grader definitions returned by the loader are registered and queryable.
+     */
+    @Test
+    void loaderConstructor_registersGradersFromConfigLoader() {
+        GraderConfigLoader loader = Mockito.mock(GraderConfigLoader.class);
+        when(loader.loadGraders()).thenReturn(List.of(
+                createGrader("fib", "Fibonacci", "ea-grader-fibbonaci:v1")
+        ));
+
+        GraderRegistry registry = new GraderRegistry(loader);
+
+        assertEquals("Fibonacci", registry.getRequired("fib").getLabel());
+        assertEquals(1, registry.getAll().size());
     }
 }

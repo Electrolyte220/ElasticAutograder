@@ -93,7 +93,7 @@ export default function JobsTable({ jobs, graders, gridRef, onViewDetails }) {
         cellRenderer: (params) => actionsCellRenderer({ ...params, onViewDetails }),
         sortable: false,
         filter: false,
-        width: 260,
+        width: 285,
         flex: 0
       }
     ],

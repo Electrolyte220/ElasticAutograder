@@ -8,6 +8,7 @@ import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -32,19 +33,35 @@ public class LocalGraderSetupRunner implements ApplicationRunner {
     private final boolean setupOnStartup;
     private final boolean failOnError;
     private final String pythonCommand;
+    private final LocalGraderSetupStatus setupStatus;
 
     public LocalGraderSetupRunner(
             @Value("${graders.setup-on-startup:false}") boolean setupOnStartup,
             @Value("${graders.setup-fail-on-error:false}") boolean failOnError,
             @Value("${graders.setup-python-command:python}") String pythonCommand) {
+        this(setupOnStartup, failOnError, pythonCommand, new LocalGraderSetupStatus());
+    }
+
+    @Autowired
+    public LocalGraderSetupRunner(
+            @Value("${graders.setup-on-startup:false}") boolean setupOnStartup,
+            @Value("${graders.setup-fail-on-error:false}") boolean failOnError,
+            @Value("${graders.setup-python-command:python}") String pythonCommand,
+            LocalGraderSetupStatus setupStatus) {
         this.setupOnStartup = setupOnStartup;
         this.failOnError = failOnError;
         this.pythonCommand = pythonCommand == null ? "python" : pythonCommand.trim();
+        this.setupStatus = setupStatus;
+
+        if (setupOnStartup) {
+            this.setupStatus.markSetupRequired();
+        }
     }
 
     @Override
     public void run(ApplicationArguments args) {
         if (!setupOnStartup) {
+            setupStatus.markReady();
             logger.info("Local grader setup on startup is disabled.");
             return;
         }
@@ -55,6 +72,7 @@ public class LocalGraderSetupRunner implements ApplicationRunner {
 
             logger.info("Running local grader setup script: {}", scriptPath);
             runSetupScript(scriptPath);
+            setupStatus.markReady();
             logger.info("Local grader setup completed successfully.");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -104,6 +122,8 @@ public class LocalGraderSetupRunner implements ApplicationRunner {
     }
 
     private void handleFailure(String message, Exception cause) {
+        setupStatus.markFailed(message);
+
         if (failOnError) {
             throw new IllegalStateException(message, cause);
         }

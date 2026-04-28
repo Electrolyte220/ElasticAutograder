@@ -21,6 +21,10 @@ class AutograderSystemTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Verifies that a valid Fibonacci submission passes the full Python grader runtime.
+     * Expected behavior: the runtime returns SUCCEEDED with all test cases passing.
+     */
     @Test
     void fullAutograderPipeline_fullPass_returnsSucceeded() throws Exception {
         JsonNode output = runGrader("fibpass1.py", "fib");
@@ -30,6 +34,10 @@ class AutograderSystemTest {
         assertEquals(2, output.get("tests_total").asInt());
     }
 
+    /**
+     * Verifies that a completely incorrect Fibonacci submission fails through the runtime.
+     * Expected behavior: the runtime returns FAILED with zero passing test cases and an error message.
+     */
     @Test
     void fullAutograderPipeline_partialCredit_returnsPartial() throws Exception {
         JsonNode output = runGrader("fibfail1.py", "fib");
@@ -40,6 +48,10 @@ class AutograderSystemTest {
         assertEquals("No test cases passed.", output.get("error_message").asText());
     }
 
+    /**
+     * Verifies that a mixed-result submission receives partial credit from the runtime.
+     * Expected behavior: the runtime returns PARTIAL with some, but not all, tests passing.
+     */
     @Test
     void fullAutograderPipeline_mixedScore_returnsPartial() throws Exception {
         Path submission = tempDir.resolve("fibpartial.py");
@@ -57,6 +69,10 @@ class AutograderSystemTest {
         assertTrue(output.get("tests_passed").asInt() < output.get("tests_total").asInt());
     }
 
+    /**
+     * Verifies that submissions missing the required callable fail validation.
+     * Expected behavior: the runtime returns FAILED and reports the missing callable function.
+     */
     @Test
     void fullAutograderPipeline_missingCallable_returnsFailed() throws Exception {
         Path submission = tempDir.resolve("emptyfile.py");

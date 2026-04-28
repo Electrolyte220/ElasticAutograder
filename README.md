@@ -227,7 +227,7 @@ cd backend
 ```
 
 **Optional: Backend with automatic grader setup on startup**
-Use the `dev` profile when you want the backend to rebuild and load grader images automatically before serving requests.
+Use the `dev` profile when you want the backend to rebuild and load grader images automatically on startup. The frontend can still open while this is running, but job upload/run requests return a temporary `503` until grader setup is ready.
 
 ```bash
 cd backend
