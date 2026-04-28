@@ -45,8 +45,8 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     private final GraderRegistry graderRegistry;
 
     /**
-     * Constructor for Fabric8GradingOrchestrator with: 
-     * the shared k8s client 
+     * Constructor for Fabric8GradingOrchestrator with:
+     * the shared k8s client
      * and the grader registry loaded from config.
      *
      * @param kubernetesClient Fabric8 client used to create/read/delete cluster resources
@@ -92,10 +92,10 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
             String logs = getJobLogs(jobId);
 
             return objectMapper.readTree(logs);
-        } 
+        }
         catch (Exception err) {
             // Wraps lower level runtime errors into a structured grading failure.
-            // This helps us store the grading error + grading error message to see 
+            // This helps us store the grading error + grading error message to see
             // later!
             FailureReason failureReason = classifyFailure(err);
             throw new GradingFailureException(
@@ -175,7 +175,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
     public Job createGradingJob(Long jobId, GraderDefinition grader) {
         Job job = buildGradingJob(jobId, grader);
 
-        // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues 
+        // IMPORTANT NOTE: this assumes default namespace for k8s cluster is left defaulted NOT empty, this can cause issues
         return kubernetesClient.batch().v1().jobs()
                 .inNamespace(NAMESPACE)
                 .resource(job)
@@ -187,8 +187,8 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
         String configMapName = "submission-job-" + jobId;
 
         // important note for understanding this, this basically is just a yaml file so it'll look crazy unless you understand k8s yaml structure
-        // Template is under backend/grading/graders if you want a reference to how this should look in yaml format but this as pretty as it gets
-        // for using k8s :D 
+        // Template is under backend/grading/image-build/manifestGuide.md if you want a reference to how this should look in yaml format but this as pretty as it gets
+        // for using k8s :D
         return new JobBuilder()
             .withNewMetadata()
                 .withName(jobName)
@@ -281,7 +281,7 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
             // move around sleep value depending on your preference
             // alternatively punish user/developer using this by changing to 20000000000
             // This is mostly the amount of time you want to wait for Job Completion
-            // in ms 
+            // in ms
             Thread.sleep(1000);
         }
 
