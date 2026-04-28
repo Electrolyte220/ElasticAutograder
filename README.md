@@ -187,8 +187,9 @@ scripts\setup-k8s.bat
 
 If on linux/unix based operating systems run the following
 ```bash
-chmod +x scripts/setup-k8s.sh
-./scripts/setup-k8s.sh
+#!/usr/bin/env bash
+set -euo pipefail
+python3 scripts/setup_graders.py
 ```
 If you run into any issues refer to the documentation folder/setup-help.md for manually deleting.
 
@@ -213,16 +214,31 @@ npm install
 npm run dev
 ```
 
-**Terminal 2 — Backend (Windows Command Prompt / cmd)**
+**Terminal 2 — Backend (Windows Command Prompt / cmd, fast local restarts)**
 ```bat
 cd backend
 gradlew bootRun --args="--spring.profiles.active=local"
 ```
 
-**Terminal 2 — Backend (PowerShell or Linux/macOS shell)**
+**Terminal 2 — Backend (PowerShell or Linux/macOS shell, fast local restarts)**
 ```bash
 cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+**Optional: Backend with automatic grader setup on startup**
+Use the `dev` profile when you want the backend to rebuild and load grader images automatically on startup. The frontend can still open while this is running, but job upload/run requests return a temporary `503` until grader setup is ready.
+
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+If you are using the `local` profile and want a one-off rebuild on startup, override the property directly:
+
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=local --graders.setup-on-startup=true'
 ```
 
 #### Open the local development site
@@ -233,4 +249,7 @@ Backend API: http://localhost:8080
 If the frontend URL is different, check the Vite terminal output.
 
 #### Upload files from mockSubmission folder
-Feel free to test the submission files from each respective function to other ones like brokenfib into twosum etc
+Use the sample submissions in `mocksubmission/`.
+
+- Fibonacci fixtures now live in `mocksubmission/fib/`, including `fibpass1.py`, `fibfail1.py`, `brokenfib.py`, and `allfib.zip`
+- Count and two-sum fixtures remain in the root `mocksubmission/` folder

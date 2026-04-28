@@ -10,8 +10,8 @@ export async function uploadFile(file, graderType) {
     body: formData
   });
 
-  const message = await response.json();
+  const payload = await response.json();
 
-  if (!response.ok) throw new Error(message.message);
-  return message;
+  if (!response.ok) throw new Error(payload.message);
+  return payload;
 }

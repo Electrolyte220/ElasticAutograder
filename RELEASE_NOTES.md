@@ -1,220 +1,179 @@
-\# Elastic Autograder - Beta Release Notes
+# Elastic Autograder 1.0.0 Release Notes
 
-Version: 0.0.1-beta
+Release date: April 27, 2026
 
-Release Date: April 2, 2026
+Elastic Autograder is a web application for submitting Python solutions, running them through configured grading jobs, and reviewing stored grading results. Version 1.0.0 includes the React frontend, Spring Boot backend, PostgreSQL/Redis local infrastructure, Kubernetes-backed grading orchestration, dynamic grader configuration, and automated backend tests.
 
+## Prerequisites
 
+Install these tools before building or running the project:
 
-\## Overview
+- Java 21
+- Node.js and npm
+- Docker or Docker Desktop
+- Python 3
+- kind
+- kubectl
+- Git
 
-Elastic Autograder is an open source automated grading pipeline for course staff.
-
-Upload student submissions, run graders, and view results in real time.
-
-
-
-\## What's Working
-
-\- Uploading a student submission (.py file) via the web interface
-
-\- Running the grader against the submission automatically
-
-\- Viewing job status in real time (Queued, Running, Succeeded, Failed)
-
-\- Viewing score and test results for completed jobs
-
-\- Recent jobs board showing the last 5 jobs
-
-
-
-\## Known Issues
-
-\- Multi-file/zip submission is not yet stable in this release
-
-\- Redis queue is present but jobs are currently run synchronously
-
-\- Kubernetes job execution is implemented but requires kind and kubectl 
-
-&#x20; to be installed separately to use
-
-\- The Render free tier backend may have a 50+ second cold start delay 
-
-&#x20; if it has not been used recently
-
-
-
-\## Prerequisites
-
-Install the following before running:
-
-1\. \*\*Docker Desktop\*\* - https://docs.docker.com/desktop/
-
-2\. \*\*Java 21\*\* - https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html
-
-3\. \*\*Python 3\*\* - https://www.python.org/downloads/
-
-4\. \*\*Node.js (LTS)\*\* - https://nodejs.org/
-
-
-
-Verify installations:
+Verify the major tools with:
 
 ```bash
-
-docker --version
-
 java -version
-
-python --version
-
 node -v
-
 npm -v
-
+docker --version
+python --version
+kind --version
+kubectl version --client
 ```
 
+## Build From Source
 
+Run these commands from the repository root after cloning the project.
 
-\## Option 1: Use the Live Deployment (Recommended)
-
-No installation required. Simply visit:
-
-
-
-\*\*Frontend:\*\* https://elastic-autograder.vercel.app
-
-\*\*Backend API:\*\* https://elastic-autograder-backend.onrender.com
-
-
-
-Note: The backend is hosted on Render's free tier and may take 50+ seconds
-
-to respond on the first request if it has been inactive.
-
-
-
-\## Option 2: Run Locally Using the JAR
-
-
-
-\### Step 1: Start the Database
-
-From the root of this package, run:
+Frontend production build:
 
 ```bash
-
-docker compose up -d
-
-docker exec -i ea-postgres psql -U postgres -d elastic\\\_autograder < init/create\\\_job.sql
-
-```
-
-
-
-\### Step 2: Run the Backend JAR
-
-```bash
-
-java -jar backend/backend-0.0.1.jar --spring.profiles.active=local
-
-```
-
-
-
-\### Step 3: Run the Frontend
-
-```bash
-
 cd frontend
-
 npm install
-
-npm run dev
-
+npm run build
 ```
 
+Backend build and tests:
 
+```bash
+cd backend
+./gradlew clean build
+```
 
-\### Step 4: Open the App
+Backend tests with coverage:
 
-Frontend: http://localhost:5173
+```bash
+cd backend
+./gradlew test jacocoTestReport --no-daemon
+```
 
-Backend API: http://localhost:8080
+The backend coverage report is generated at:
 
+```text
+backend/build/reports/jacoco/test/html/index.html
+```
 
+## Local Run Instructions
 
-\## Option 3: Run from Source
+Start the local PostgreSQL and Redis services from the repository root:
 
-See README.md for full source setup instructions.
+```bash
+docker compose up -d
+docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/create_job.sql
+```
 
+Optionally seed sample job data:
 
+```bash
+docker exec -i ea-postgres psql -U postgres -d elastic_autograder < init/seed_job.sql
+```
 
-\## Troubleshooting
+Create the local Kubernetes cluster and grader images.
 
-\- \*\*Port 5432 already in use:\*\* You may have PostgreSQL installed locally.
+Windows:
 
-&#x20; Stop the local PostgreSQL service before running Docker.
+```bat
+scripts\setup-k8s.bat
+```
 
-&#x20; On Windows: `net stop postgresql-x64-17` (run as administrator)
+Linux/macOS:
 
-&#x20; On Mac/Linux: `sudo service postgresql stop`
+```bash
+bash scripts/setup-k8s.sh
+```
 
+If the shell script is unavailable for your environment, run the grader setup directly:
 
+```bash
+python3 scripts/setup-graders.py
+```
 
-\- \*\*Backend fails to connect to database:\*\* Make sure Docker is running and
+Run the frontend:
 
-&#x20; the containers are up. Run `docker ps` to verify `ea-postgres` is listed.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
+Run the backend with the local profile:
 
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
 
-\- \*\*gradlew not recognized in PowerShell:\*\* Use `.\\\\gradlew` instead of `gradlew`
+Run the backend with automatic grader setup:
 
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
 
+Open the application at:
 
-\- \*\*npm not recognized in PowerShell:\*\* Run this first:
+```text
+http://localhost:5173
+```
 
-&#x20; `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
+The backend API runs at:
 
+```text
+http://localhost:8080
+```
 
+## Working Features
 
-\- \*\*Frontend shows "Failed to fetch":\*\* The backend is not running.
+- Upload a single Python submission file.
+- Upload a `.zip` batch and create one grading job per submission.
+- Select a grader from dynamic grader configuration.
+- Run grading jobs through Kubernetes-backed grader containers.
+- View recent job history.
+- Open a dedicated job details page.
+- Display status, score, test counts, failure reason, and failure message.
+- Download stored result JSON.
+- Clean up staged upload files after grading.
+- Run backend unit and integration/system tests.
+- Generate backend test coverage with JaCoCo.
 
-&#x20; Make sure you started the JAR or ran bootRun before opening the frontend.
+## Test Results
 
+Latest local verification was run on April 27, 2026.
 
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend clean build | `cd backend && ./gradlew clean build --no-daemon` | Passed |
+| Backend tests and coverage | `cd backend && ./gradlew test jacocoTestReport --no-daemon` | Passed |
+| Frontend lint | `cd frontend && npm run lint` | Passed |
+| Frontend production build | `cd frontend && npm run build` | Passed |
 
-\- \*\*Cold start delay on live site:\*\* The Render free tier spins down after
+Coverage summary from JaCoCo:
 
-&#x20; inactivity. Wait 60 seconds and refresh if the site appears unresponsive.
+```text
+Instruction coverage: 80.4% (2,533 of 3,149 instructions covered)
+Branch coverage: 57.3% (213 of 372 branches covered)
+Line coverage: 81.5% (651 of 799 lines covered)
+```
 
+## Known Issues
 
+- No known release-blocking issues at the time of this 1.0.0 source package.
+- Frontend `npm run build` may warn that the generated JavaScript chunk is larger than 500 kB. This does not block the build.
+- The current automated coverage report covers backend tests only. The frontend has lint/build verification but no dedicated frontend unit test framework in this release.
 
-\## Package Contents
+## Repository And Issue Tracking
 
-\- `backend/` - Spring Boot backend source code + runnable JAR (backend-0.0.1.jar)
+Source repository:
 
-\- `frontend/` - React + Vite frontend source code
-
-\- `init/` - Database schema and seed SQL scripts
-
-\- `k8s/` - Kubernetes configuration files
-
-\- `mocksubmission/` - Sample submissions for testing
-
-\- `docker-compose.yaml` - Local PostgreSQL + Redis setup
-
-\- `README.md` - Full developer setup instructions
-
-
-
-\## Source Repository
-
+```text
 https://github.com/Electrolyte220/ElasticAutograder
+```
 
-
-
-\## Issue Tracker
-
-https://github.com/Electrolyte220/ElasticAutograder/issues
-
+Issue tracking is handled through GitHub Issues in the same repository. The repository includes issue templates for bug reports and TODO/enhancement items under `.github/ISSUE_TEMPLATE/`.

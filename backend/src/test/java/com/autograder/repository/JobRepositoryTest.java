@@ -23,7 +23,8 @@ public class JobRepositoryTest {
     }
 
     /**
-     * Test 1: findAllOrderByCreatedAtDesc returns jobs newest-first.
+     * Verifies that recent job queries return jobs in newest-first order.
+     * Expected behavior: callers receive results ordered by created_at descending.
      */
     @Test
     void findAllOrderByCreatedAtDesc_returnsJobsNewestFirst() {
@@ -43,7 +44,8 @@ public class JobRepositoryTest {
     }
 
     /**
-     * Test 2: findAllOrderByCreatedAtDesc returns at most 5 results.
+     * Verifies the expected size of a recent job result set in the mocked repository.
+     * Expected behavior: the repository returns the same five jobs provided by the test fixture.
      */
     @Test
     void findAllOrderByCreatedAtDesc_capsAtFiveResults() {

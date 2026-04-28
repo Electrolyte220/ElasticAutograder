@@ -23,4 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+__pycache__/
+*.py[cod]
+.gradle-user-home/
 backend/grading/graders/assignments/test1/**/__pycache__
+
+.codex
+.claude
