@@ -60,7 +60,6 @@ import tools.jackson.databind.node.StringNode;
  * 4. Store results/failure details in the database
  * 5. Return job history and downloadable results to the frontend
  */
-@CrossOrigin(origins = "http://localhost:5173/")
 @RestController
 @RequestMapping("/api")
 public class JobController {
