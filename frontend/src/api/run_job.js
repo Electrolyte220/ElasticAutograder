@@ -7,5 +7,5 @@ export async function runJob(jobId, fileName) {
   })
 
   if (!response.ok) throw new Error("Unable to run job");
-  return response;
+  return response.json();
 }

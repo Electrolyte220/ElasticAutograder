@@ -226,7 +226,15 @@ def main():
                 make_result("test", case_name, False, f"Expected {expected}, got {actual}")
             )
 
-    status = "SUCCEEDED" if tests_passed == tests_total else "FAILED"
+    if tests_passed == tests_total:
+        status = "SUCCEEDED"
+        error_message = None
+    elif tests_total > 0 and tests_passed == 0:
+        status = "FAILED"
+        error_message = "No test cases passed."
+    else:
+        status = "PARTIAL"
+        error_message = None
 
     emit(
         build_payload(
@@ -234,7 +242,7 @@ def main():
             validation_passed=True,
             tests_passed=tests_passed,
             tests_total=tests_total,
-            error_message=None,
+            error_message=error_message,
             results=results
         ),
         exit_code=0
