@@ -30,22 +30,63 @@ class AutograderSystemTest {
         JsonNode output = runGrader("fibpass1.py", "fib");
 
         assertEquals("SUCCEEDED", output.get("status").asText());
-        assertEquals(2, output.get("tests_passed").asInt());
-        assertEquals(2, output.get("tests_total").asInt());
+        assertTrue(output.get("tests_total").asInt() > 0);
+        assertEquals(output.get("tests_total").asInt(), output.get("tests_passed").asInt());
     }
 
     /**
-     * Verifies that a completely incorrect Fibonacci submission fails through the runtime.
-     * Expected behavior: the runtime returns FAILED with zero passing test cases and an error message.
+     * Verifies that an incorrect Fibonacci submission receives only partial credit.
+     * Expected behavior: the runtime returns PARTIAL when some base cases pass but recursive cases fail.
      */
     @Test
     void fullAutograderPipeline_partialCredit_returnsPartial() throws Exception {
         JsonNode output = runGrader("fibfail1.py", "fib");
 
-        assertEquals("FAILED", output.get("status").asText());
-        assertEquals(0, output.get("tests_passed").asInt());
-        assertEquals(2, output.get("tests_total").asInt());
-        assertEquals("No test cases passed.", output.get("error_message").asText());
+        assertEquals("PARTIAL", output.get("status").asText());
+        assertTrue(output.get("tests_passed").asInt() > 0);
+        assertTrue(output.get("tests_total").asInt() > 0);
+        assertTrue(output.get("tests_passed").asInt() < output.get("tests_total").asInt());
+        assertTrue(output.get("error_message").isNull());
+    }
+
+    /**
+     * Verifies that an iterative Fibonacci solution passes generated performance cases.
+     * Expected behavior: the runtime expands generated cases and returns SUCCEEDED.
+     */
+    @Test
+    void fullAutograderPipeline_fibonacciPerformanceIterative_returnsSucceeded() throws Exception {
+        JsonNode output = runGrader("fibpass_iterative.py", "fib-performance");
+
+        assertEquals("SUCCEEDED", output.get("status").asText());
+        assertEquals(17, output.get("tests_total").asInt());
+        assertEquals(17, output.get("tests_passed").asInt());
+    }
+
+    /**
+     * Verifies that small hardcoded Fibonacci tables do not pass generated performance cases.
+     * Expected behavior: the runtime gives partial credit for small fixed cases and rejects larger generated cases.
+     */
+    @Test
+    void fullAutograderPipeline_fibonacciPerformanceHardcodedSmall_returnsPartial() throws Exception {
+        JsonNode output = runGrader("fibhardcoded_small.py", "fib-performance");
+
+        assertEquals("PARTIAL", output.get("status").asText());
+        assertEquals(17, output.get("tests_total").asInt());
+        assertTrue(output.get("tests_passed").asInt() > 0);
+        assertTrue(output.get("tests_passed").asInt() < output.get("tests_total").asInt());
+    }
+
+    /**
+     * Verifies that the safe memory demo submission passes the direct Python runtime.
+     * Expected behavior: the runtime returns SUCCEEDED without exercising the intentional OOM fixture.
+     */
+    @Test
+    void fullAutograderPipeline_memoryDemoPass_returnsSucceeded() throws Exception {
+        JsonNode output = runGrader("memorypass.py", "memory-demo");
+
+        assertEquals("SUCCEEDED", output.get("status").asText());
+        assertEquals(1, output.get("tests_total").asInt());
+        assertEquals(1, output.get("tests_passed").asInt());
     }
 
     /**

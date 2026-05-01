@@ -1,9 +1,13 @@
 import importlib.util
 import json
 import os
+import random
 import sys
 import traceback
 from typing import Any, Dict, List
+
+
+MAX_VALUE_MESSAGE_LENGTH = 120
 
 
 def load_module_from_path(module_name: str, file_path: str):
@@ -83,6 +87,110 @@ def compare_values(actual: Any, expected: Any, mode: str) -> bool:
     raise ValueError(f"Unsupported comparison mode: {mode}")
 
 
+def summarize_value(value: Any) -> str:
+    if isinstance(value, int):
+        estimated_digits = max(1, int(value.bit_length() * 0.30103) + 1)
+        if estimated_digits > MAX_VALUE_MESSAGE_LENGTH:
+            return f"<int with about {estimated_digits} digits>"
+
+    text = repr(value)
+    if len(text) <= MAX_VALUE_MESSAGE_LENGTH:
+        return text
+
+    return text[:MAX_VALUE_MESSAGE_LENGTH] + "...<truncated>"
+
+
+def fibonacci(n: int) -> int:
+    current, next_value = 0, 1
+    for _ in range(n):
+        current, next_value = next_value, current + next_value
+    return current
+
+
+def build_fibonacci_generated_cases(config: Dict[str, Any], index: int) -> tuple[List[Dict[str, Any]], List[str]]:
+    errors = []
+    cases: List[Dict[str, Any]] = []
+    name_prefix = config.get("name_prefix", f"generated_{index}")
+
+    if not isinstance(name_prefix, str) or not name_prefix.strip():
+        errors.append(f"generated_cases[{index}] is missing valid 'name_prefix'")
+        name_prefix = f"generated_{index}"
+
+    inputs = config.get("inputs")
+    if inputs is not None:
+        if not isinstance(inputs, list) or not inputs:
+            errors.append(f"generated_cases[{index}].inputs must be a non-empty list")
+            return cases, errors
+
+        for input_index, n in enumerate(inputs):
+            if not isinstance(n, int) or n < 0:
+                errors.append(f"generated_cases[{index}].inputs[{input_index}] must be a non-negative integer")
+                continue
+            cases.append({
+                "name": f"{name_prefix}_{n}",
+                "args": [n],
+                "expected": fibonacci(n)
+            })
+
+        return cases, errors
+
+    count = config.get("count")
+    min_n = config.get("min_n")
+    max_n = config.get("max_n")
+    seed = config.get("seed")
+
+    if not isinstance(count, int) or count <= 0:
+        errors.append(f"generated_cases[{index}].count must be a positive integer")
+    if not isinstance(min_n, int) or min_n < 0:
+        errors.append(f"generated_cases[{index}].min_n must be a non-negative integer")
+    if not isinstance(max_n, int) or max_n < 0:
+        errors.append(f"generated_cases[{index}].max_n must be a non-negative integer")
+    if isinstance(min_n, int) and isinstance(max_n, int) and min_n > max_n:
+        errors.append(f"generated_cases[{index}].min_n cannot be greater than max_n")
+    if seed is not None and not isinstance(seed, int):
+        errors.append(f"generated_cases[{index}].seed must be an integer")
+
+    if errors:
+        return cases, errors
+
+    rng = random.Random(seed)
+    values = [rng.randint(min_n, max_n) for _ in range(count)]
+
+    for value_index, n in enumerate(values):
+        cases.append({
+            "name": f"{name_prefix}_{value_index}_{n}",
+            "args": [n],
+            "expected": fibonacci(n)
+        })
+
+    return cases, errors
+
+
+def build_generated_cases(manifest: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[str]]:
+    generated_cases = manifest.get("generated_cases", [])
+    errors = []
+    cases: List[Dict[str, Any]] = []
+
+    if not isinstance(generated_cases, list):
+        return cases, ["manifest.json has invalid 'generated_cases'"]
+
+    for i, config in enumerate(generated_cases):
+        if not isinstance(config, dict):
+            errors.append(f"generated_cases[{i}] is not an object")
+            continue
+
+        generator_type = config.get("type")
+        if generator_type == "fibonacci":
+            generated, generator_errors = build_fibonacci_generated_cases(config, i)
+            cases.extend(generated)
+            errors.extend(generator_errors)
+            continue
+
+        errors.append(f"generated_cases[{i}] has unsupported type")
+
+    return cases, errors
+
+
 def validate_manifest(manifest: Dict[str, Any]) -> tuple[str, str, List[Dict[str, Any]]]:
     entry_function = manifest.get("entry_function")
     comparison = manifest.get("comparison", {})
@@ -116,10 +224,13 @@ def validate_manifest(manifest: Dict[str, Any]) -> tuple[str, str, List[Dict[str
             if "expected" not in case:
                 errors.append(f"test_cases[{i}] is missing 'expected'")
 
+    generated_cases, generated_errors = build_generated_cases(manifest)
+    errors.extend(generated_errors)
+
     if errors:
         fail_validation("; ".join(errors), exit_code=1)
 
-    return entry_function, comparison_mode, test_cases
+    return entry_function, comparison_mode, test_cases + generated_cases
 
 
 def main():
@@ -219,11 +330,11 @@ def main():
         if passed:
             tests_passed += 1
             results.append(
-                make_result("test", case_name, True, f"Expected {expected}, got {actual}")
+                make_result("test", case_name, True, f"Expected {summarize_value(expected)}, got {summarize_value(actual)}")
             )
         else:
             results.append(
-                make_result("test", case_name, False, f"Expected {expected}, got {actual}")
+                make_result("test", case_name, False, f"Expected {summarize_value(expected)}, got {summarize_value(actual)}")
             )
 
     if tests_passed == tests_total:

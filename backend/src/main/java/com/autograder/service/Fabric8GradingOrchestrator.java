@@ -362,13 +362,18 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
 
             // avoid using var normally to avoid too much abstraction, but for future devs this is Fabric8 type
             for (var containerStatus : pod.getStatus().getContainerStatuses()) {
-                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
-                    continue;
+                if (containerStatus.getState() != null && containerStatus.getState().getTerminated() != null) {
+                    String reason = containerStatus.getState().getTerminated().getReason();
+                    if (reason != null && reason.equalsIgnoreCase("OOMKilled")) {
+                        return FailureReason.RESOURCE_LIMIT;
+                    }
                 }
 
-                String reason = containerStatus.getState().getTerminated().getReason();
-                if (reason != null && reason.equalsIgnoreCase("OOMKilled")) {
-                    return FailureReason.RESOURCE_LIMIT;
+                if (containerStatus.getLastState() != null && containerStatus.getLastState().getTerminated() != null) {
+                    String reason = containerStatus.getLastState().getTerminated().getReason();
+                    if (reason != null && reason.equalsIgnoreCase("OOMKilled")) {
+                        return FailureReason.RESOURCE_LIMIT;
+                    }
                 }
             }
         }
@@ -404,16 +409,24 @@ public class Fabric8GradingOrchestrator implements GradingOrchestrator {
             }
 
             for (var containerStatus : pod.getStatus().getContainerStatuses()) {
-                if (containerStatus.getState() == null || containerStatus.getState().getTerminated() == null) {
-                    continue;
+                if (containerStatus.getState() != null && containerStatus.getState().getTerminated() != null) {
+                    var terminated = containerStatus.getState().getTerminated();
+                    String reason = terminated.getReason();
+                    Integer exitCode = terminated.getExitCode();
+
+                    if (reason != null) {
+                        return "Job failed: " + reason + (exitCode != null ? " (exit code " + exitCode + ")" : "");
+                    }
                 }
 
-                var terminated = containerStatus.getState().getTerminated();
-                String reason = terminated.getReason();
-                Integer exitCode = terminated.getExitCode();
+                if (containerStatus.getLastState() != null && containerStatus.getLastState().getTerminated() != null) {
+                    var terminated = containerStatus.getLastState().getTerminated();
+                    String reason = terminated.getReason();
+                    Integer exitCode = terminated.getExitCode();
 
-                if (reason != null) {
-                    return "Job failed: " + reason + (exitCode != null ? " (exit code " + exitCode + ")" : "");
+                    if (reason != null) {
+                        return "Job failed: " + reason + (exitCode != null ? " (exit code " + exitCode + ")" : "");
+                    }
                 }
             }
         }

@@ -328,6 +328,90 @@ class GraderConfigLoaderTest {
     }
 
     /**
+     * Verifies that the Fibonacci performance grader can load with stricter resource settings.
+     * Expected behavior: configured timeout, CPU, and memory limits are preserved.
+     */
+    @Test
+    void loadGraders_fibonacciPerformanceConfig_preservesResourceLimits() throws Exception {
+        Path configFile = tempDir.resolve("graders.json");
+
+        String json = """
+                {
+                  "graders": [
+                    {
+                      "key": "fib-performance",
+                      "label": "Fibonacci Performance",
+                      "imageName": "ea-grader-fib-performance:v1",
+                      "manifestPath": "/app/grader/manifest.json",
+                      "summary": "Return Fibonacci numbers efficiently.",
+                      "details": ["Use an iterative or dynamic programming approach."],
+                      "timeoutSeconds": 6,
+                      "cpuRequestMilli": 100,
+                      "cpuLimitMilli": 500,
+                      "memoryRequestMb": 64,
+                      "memoryLimitMb": 128
+                    }
+                  ]
+                }
+                """;
+
+        Files.writeString(configFile, json);
+
+        GraderDefinition grader = createLoader().loadGraders(configFile).get(0);
+
+        assertEquals("fib-performance", grader.getKey());
+        assertEquals("Fibonacci Performance", grader.getLabel());
+        assertEquals("ea-grader-fib-performance:v1", grader.getImageName());
+        assertEquals(6, grader.getTimeoutSeconds());
+        assertEquals(100, grader.getCpuRequestMilli());
+        assertEquals(500, grader.getCpuLimitMilli());
+        assertEquals(64, grader.getMemoryRequestMb());
+        assertEquals(128, grader.getMemoryLimitMb());
+    }
+
+    /**
+     * Verifies that the dedicated memory demo grader loads with an intentionally low memory limit.
+     * Expected behavior: configured timeout, CPU, and 64Mi memory request/limit are preserved.
+     */
+    @Test
+    void loadGraders_memoryDemoConfig_preservesResourceLimits() throws Exception {
+        Path configFile = tempDir.resolve("graders.json");
+
+        String json = """
+                {
+                  "graders": [
+                    {
+                      "key": "memory-demo",
+                      "label": "Memory Limit Demo",
+                      "imageName": "ea-grader-memory-demo:v1",
+                      "manifestPath": "/app/grader/manifest.json",
+                      "summary": "Demonstrate Kubernetes memory-limit failures.",
+                      "details": ["Use this grader to trigger RESOURCE_LIMIT failures."],
+                      "timeoutSeconds": 30,
+                      "cpuRequestMilli": 100,
+                      "cpuLimitMilli": 500,
+                      "memoryRequestMb": 64,
+                      "memoryLimitMb": 64
+                    }
+                  ]
+                }
+                """;
+
+        Files.writeString(configFile, json);
+
+        GraderDefinition grader = createLoader().loadGraders(configFile).get(0);
+
+        assertEquals("memory-demo", grader.getKey());
+        assertEquals("Memory Limit Demo", grader.getLabel());
+        assertEquals("ea-grader-memory-demo:v1", grader.getImageName());
+        assertEquals(30, grader.getTimeoutSeconds());
+        assertEquals(100, grader.getCpuRequestMilli());
+        assertEquals(500, grader.getCpuLimitMilli());
+        assertEquals(64, grader.getMemoryRequestMb());
+        assertEquals(64, grader.getMemoryLimitMb());
+    }
+
+    /**
      * Verifies that every grader must have a unique non-empty key.
      * Expected behavior: a missing key fails validation because the backend cannot look the grader up.
      */
