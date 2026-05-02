@@ -159,19 +159,26 @@ python --version
 psql --version
 ```
 
+## Role-Based Documentation
+
+Use the role-based guides below for task-focused documentation:
+
+- [User Guide](documentation/user.md)
+- [Admin Guide](documentation/admin.md)
+
 ### Running the project locally
 
 #### Git clone the main branch repository
 ```bash
 git clone https://github.com/Electrolyte220/ElasticAutograder.git
 cd ElasticAutograder
-git switch k8s
+git switch dynamic
 ```
 
 #### Ensure you're inside of the main elastic_autograder directory
 Change directories inside of the ElasticAutograder and run the following command
 ```bash
-git switch k8s
+git switch dynamic
 ```
 
 #### The next steps are easiest with at least two open terminals.
@@ -226,8 +233,12 @@ cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-**Optional: Backend with automatic grader setup on startup**
-Use the `dev` profile when you want the backend to rebuild and load grader images automatically on startup. The frontend can still open while this is running, but job upload/run requests return a temporary `503` until grader setup is ready.
+**Optional: Add your own custom grader!**
+1. Access config/graders.json and create a new member based off the main format with a key, labelname, imageName, manifestPath, summary, and details. (You can copy paste from another one and change members).
+2. Create a folder under backend/grading/image-build matching the new key.
+3. Insert a manifest.json similar to other graders (again if you want just copy paste the manifest from another folder).
+4. Important! entry_function will be looked for when testing, so any submission MUST match this function name in python.
+5. Use the `dev` profile when you want the backend to rebuild and load grader images automatically on startup. The frontend can still open while this is running, but job upload/run requests return a temporary `503` until grader setup is ready.
 
 ```bash
 cd backend

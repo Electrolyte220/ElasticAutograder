@@ -2,6 +2,13 @@
 
 This document explains how to run the project checks used for the 1.0.0 source/test package. The repository currently includes automated backend unit tests, a backend integration/system test, frontend linting, frontend production build verification, and backend coverage reporting through JaCoCo.
 
+## Role-Based Documentation
+
+Use the role-based guides below for workflow-specific documentation:
+
+- [User Guide](documentation/user.md)
+- [Admin Guide](documentation/admin.md)
+
 ## Backend Test Coverage
 
 Backend tests live under:
