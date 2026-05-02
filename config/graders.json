@@ -13,18 +13,6 @@
       ]
     },
     {
-      "key": "example",
-      "label": "example-label",
-      "imageName": "ea-grader-example:v1",
-      "manifestPath": "/app/grader/manifest.json",
-      "summary": "this is a test function to see if dynamic grading works.",
-      "details": [
-        "return the n input.",
-        "a simple test scenario to see if this works dynamically.",
-        "solutions should be o(1)."
-      ]
-    },
-    {
       "key": "fib-performance",
       "label": "Fibonacci Performance",
       "imageName": "ea-grader-fib-performance:v1",
